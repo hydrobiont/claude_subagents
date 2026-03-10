@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {
+        "MEMORY_FILE_PATH": "$HOME/.claude/memory.jsonl"
+      }
+    },
+    "analytics": {
+      "command": "analytics-mcp",
+      "args": []
+    },
+    "dataegret-staging": {
+      "command": "npx",
+      "args": ["-y", "@instawp/mcp-wp"],
+      "env": {
+        "WORDPRESS_API_URL": "https://dev2.dataegret.com",
+        "WORDPRESS_USERNAME": "FILL_IN",
+        "WORDPRESS_PASSWORD": "FILL_IN"
+      }
+    }
+  }
+}
