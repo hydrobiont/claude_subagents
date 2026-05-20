@@ -36,10 +36,15 @@ A "successful build" means all four `.md` and `.html` files in `_build/` are pro
 Always run before building:
 
 ```bash
+# GNU Make ≥ 3.82 (the Makefile uses `define VARIABLE =`)
+MAKE_BIN=$(command -v gmake || command -v make)
+"$MAKE_BIN" --version | head -1
+# If you see "GNU Make 3.81" (macOS system make), switch to gmake from Homebrew.
+
 # Docker available?
 docker info >/dev/null 2>&1 || { echo "Docker daemon not running — start Docker Desktop and retry."; exit 1; }
 
-# Required images present?
+# Required images present? (run AFTER confirming Docker is up; results are bogus when daemon is down)
 for img in pandoc/minimal pandoc/extra astefanutti/decktape; do
   docker image inspect "$img" >/dev/null 2>&1 || echo "MISSING: docker pull $img"
 done
@@ -49,6 +54,8 @@ test -x ~/.dataegret/markdown-converter/converter.sh || { echo "Missing converte
 ```
 
 If any precondition is missing, **report it and stop** — don't try to half-build. Tell the user which `docker pull` commands are needed.
+
+**Always inspect existing state before downloading.** If an image looks missing, re-verify after confirming Docker is actually up; the `image inspect` call returns non-zero whenever the daemon is down, which can falsely suggest you need to pull. Run `docker images` to see what's actually present before issuing any `docker pull`.
 
 ### Phase 2: Static checks before invoking the build
 
@@ -79,19 +86,23 @@ Run from `training/handbooks/`. Use the Make targets — never re-invoke the con
 cd ~/work/de/trainings2025/training/handbooks
 
 # Single chapter:
-make -s dev-02
+gmake -s dev-02
 
 # Single explicit format:
-make -s _build/chapters/dev-02/dev-02.slides.reveal.html
+gmake -s _build/chapters/dev-02/dev-02.slides.reveal.html
 
 # Whole track:
-make -s devpg
+gmake -s devpg
 
 # Clean rebuild:
-make -s clean && make -s devpg
+gmake -s clean && gmake -s devpg
 ```
 
-Use `-s` (silent) so make output stays small. Capture stderr separately so pandoc warnings/errors are not lost.
+Use `-s` (silent) so output stays small. Capture stderr separately so pandoc warnings/errors are not lost.
+
+**Critical: use `gmake`, not `make`, on macOS.** The Makefile uses `define VARIABLE =` syntax that requires **GNU Make 3.82+**. macOS ships GNU Make **3.81** (2006) as `/usr/bin/make`, which silently produces empty rule bodies — the target appears defined but has no recipe, and you get `*** No rule to make target 'dev-02'`. Homebrew installs `gmake` (4.x) at `/opt/homebrew/bin/gmake`. On Linux, system `make` is usually new enough; check with `make --version` and fall back to `gmake` if the version is < 3.82.
+
+Symptom that you're using the wrong `make`: warnings like `Makefile:62: warning: undefined variable 'markdown_files'` when running `make -p`.
 
 For pinpoint debugging, the intermediate `.handout.md` and `.slides.md` files in `_build/` are very useful — they show exactly what was concatenated and where line numbers come from.
 
@@ -138,8 +149,8 @@ Keep the report tight. If the user wants verbose output, they'll ask.
 
 The most common invocation pattern: the user just generated a few slides and wants a fast feedback loop. In that case:
 
-- Build only the affected chapter, not the whole track. (`make dev-02`, not `make devpg`.)
-- Skip `make clean` unless the user asks — incremental builds are fast.
+- Build only the affected chapter, not the whole track. (`gmake dev-02`, not `gmake devpg`.)
+- Skip `gmake clean` unless the user asks — incremental builds are fast.
 - Don't re-`docker pull`; assume images are warm.
 - Prefer warning over stopping when something is borderline — e.g. a 49 KB output file might be a genuinely short chapter.
 
@@ -159,7 +170,7 @@ The most common invocation pattern: the user just generated a few slides and wan
 - You don't edit slide content. If you find an unbalanced div, you report it — you don't fix it. The `technical-writer` skill or `devpg-slide-author` agent owns content edits.
 - You don't commit anything. Build artifacts in `_build/` are git-ignored (see `training/handbooks/.gitignore`); never `git add` them.
 - You don't push images to Docker, install dependencies, or modify the converter. If a precondition is missing, surface it; don't fix it silently.
-- You don't run `make clean` unprompted — it can wipe the user's intermediate work if they're inspecting `_build/`.
+- You don't run `gmake clean` unprompted — it can wipe the user's intermediate work if they're inspecting `_build/`.
 
 ## Reporting style
 
