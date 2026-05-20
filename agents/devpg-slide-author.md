@@ -62,7 +62,7 @@ Once the plan is confirmed:
 
 1. **Read the references.** Use `WebFetch` for URLs, `Read` for local files. Take notes on the specific claims you'll cite.
 2. **Read the target file's neighbouring slides** to calibrate density, bullet style, and code-block length.
-3. **Cross-check version-specific behaviour** against the user's working version (DEVPG is currently aimed at PostgreSQL 17 — confirm if unsure).
+3. **Cross-check version-specific behaviour** against the user's working version (DEVPG is currently aimed at PostgreSQL 18 — confirm if unsure, and explicitly flag anything that differs between v17 and v18 so the user can decide how to phrase it). Use `/docs/18/…` URLs from postgresql.org as primary; `/docs/current/` is acceptable when the page is stable across versions.
 4. If you need real output, request it from `training-sql-tester` rather than fabricating it. Pass the agent a small list of SQL blocks and ask for verbatim output.
 
 ### Phase 3: Draft

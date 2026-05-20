@@ -163,6 +163,8 @@ Audience: **customer engineers learning PostgreSQL in instructor-led sessions** 
 
 The repository is at `~/work/de/trainings2025/`. The git repo is the `training/` subdirectory. Current active branch for developer-training work is `devpg`.
 
+**Target PostgreSQL version:** the DEVPG track is currently built around **PostgreSQL 18**. Cite `https://www.postgresql.org/docs/18/...` URLs as primary. When v17 and v18 differ in a way that affects a slide (e.g. planner output, new GUCs, EXPLAIN options), prefer the v18 behaviour and call out the v17 difference inline if customers commonly encounter it. The DBA tracks (`dba-*`) currently target v17 — when working in those chapters, keep v17 unless the user says otherwise.
+
 ## Repository layout
 
 ```

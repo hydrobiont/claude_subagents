@@ -21,6 +21,7 @@ Before doing anything, confirm:
    ssh -o ConnectTimeout=10 -o BatchMode=no stg-devpg-01-gcp-instance01 'echo ok && psql -V'
    ```
    Expect a YubiKey prompt. If it times out or fails, stop and surface the error verbatim.
+3. The reported `psql -V` server line should be **PostgreSQL 18.x** (DEVPG's target version). If it's not 18.x, surface that mismatch to the user *before* running queries — version-dependent SQL (EXPLAIN options, new GUCs, planner output formatting) may behave differently and could mislead the author. Don't assume v17 fallbacks; ask.
 
 If you don't know the precise SSH host alias, **ask the user** rather than guess. Do not invent IPs, ports, or usernames.
 
