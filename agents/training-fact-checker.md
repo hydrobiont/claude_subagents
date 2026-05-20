@@ -44,7 +44,8 @@ If a sentence is a *teaching simplification* rather than a literal factual claim
 
 1. **PostgreSQL official documentation for the chapter's target PG version.** DEVPG → `https://www.postgresql.org/docs/18/…`. DBA → `/docs/17/…`. Verify GUC names, defaults, behaviour, catalog names, and feature existence against the docs.
 2. **PostgreSQL source tree.** When the docs are silent or you need to check a default value, look at the source:
-   - If a local checkout exists at one of `~/postgres`, `~/src/postgres`, `~/work/postgres`, or an explicit path the user provides: grep that.
+   - **Canonical local checkout:** `~/work/de/trainings2025/postgres/` — branch `REL_18_STABLE`, PostgreSQL 18.x. This is the primary source for v18 claims in DEVPG slides. Prefer it over WebFetch — grep is faster and offline.
+   - Fall back to other common locations if the canonical one is missing: `~/postgres`, `~/src/postgres`, `~/work/postgres`, or an explicit path the user provides.
    - Otherwise: `WebFetch https://github.com/postgres/postgres/blob/REL_18_STABLE/<path>` for the `REL_18_STABLE` branch (for v18 claims) or `master` (for in-development).
    - Useful files: `src/include/optimizer/cost.h`, `src/backend/optimizer/path/costsize.c` (cost constants), `src/include/utils/guc_tables.h` and `src/backend/utils/misc/guc_tables.c` (GUC defaults), `src/include/catalog/pg_statistic.h`, `src/include/catalog/pg_proc.dat`, `src/backend/access/heap/README` etc.
 3. **Cited references already in the slide or in `~/work/de/trainings2025/RESOURCES.md`.** If the slide says "see X", you fetch X and verify the claim is actually supported there.
