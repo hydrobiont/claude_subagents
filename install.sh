@@ -18,6 +18,17 @@ else
   echo "  created: $CLAUDE/agents -> $REPO/agents"
 fi
 
+# ── 1b. Skills symlink ───────────────────────────────────────────────────────
+if [ -L "$CLAUDE/skills" ]; then
+  echo "  skills symlink already exists — skipping"
+elif [ -d "$CLAUDE/skills" ]; then
+  echo "  WARNING: $CLAUDE/skills is a real directory, not a symlink."
+  echo "  Move its contents into $REPO/skills/ and delete the directory, then re-run."
+else
+  ln -s "$REPO/skills" "$CLAUDE/skills"
+  echo "  created: $CLAUDE/skills -> $REPO/skills"
+fi
+
 # ── 2. Claude settings ───────────────────────────────────────────────────────
 SETTINGS_SRC="$REPO/config/claude-settings.json"
 SETTINGS_DST="$CLAUDE/settings.json"

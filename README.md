@@ -18,6 +18,8 @@ Then follow the manual steps printed at the end.
 
 ```
 agents/          Custom sub-agents (linked into ~/.claude/agents)
+skills/          Custom skills (linked into ~/.claude/skills)
+                   technical-writer/   dba-docs-internal + trainings2025 writer
 config/
   claude-settings.json   ~/.claude/settings.json — plugins + settings
   mcp.json               ~/.claude/.mcp.json template — MCP server definitions
@@ -34,6 +36,7 @@ install.sh       Idempotent setup script
 | Step | What | Where |
 |---|---|---|
 | Agents symlink | `~/.claude/agents → ~/claude_subagents/agents` | automatic |
+| Skills symlink | `~/.claude/skills → ~/claude_subagents/skills` | automatic |
 | Claude settings | copies `config/claude-settings.json` → `~/.claude/settings.json` | automatic (skips if exists) |
 | MCP config | templates `config/mcp.json` → `~/.claude/.mcp.json` | automatic (skips if exists) |
 | Project memory | copies `memory/de-website/MEMORY.md` into `~/.claude/projects/` | automatic (skips if exists) |
