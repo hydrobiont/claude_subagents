@@ -130,6 +130,19 @@ Next step?  Pick one:
 - Cite resources in the notes div, not on-slide, unless it's a "References" bibliography slide.
 - Prefer primary sources (postgresql.org docs, use-the-index-luke.com, PostgreSQL wiki, source code) over secondary (blog posts), and modern over old. Tag claims that depend on a specific PG version with the version.
 
+### PostgreSQL conference talks — handle with care
+
+PGConf.EU, PGCon (now PGConf.dev), PostgresConf, and regional PGDay events are excellent sources of **ideas, framings, and explanatory narratives** — many talks come from committers or core contributors. They're listed under SECONDARY in RESOURCES.md.
+
+However: **most conference talks are outdated relative to PG 18.** Some predate features by 5–10 years; some predate the very feature they discuss being changed or removed. Treat talks as inspiration, not as authoritative source.
+
+Workflow when using a talk:
+1. **Take the idea**, the explanatory framing, the example structure — but not the claims verbatim.
+2. **Re-verify every technical assertion** against the PG 18 docs and (where applicable) against the test instance via `training-sql-tester`. EXPLAIN output, GUC names, syntax, behaviour — all checked.
+3. **Regenerate** any EXPLAIN / psql output on the v18 test instance yourself. Don't paste a 2017 plan into a 2026 slide.
+4. **Cite the talk** in the speaker notes as the inspiration source, with year and the PG version it targeted (e.g. "Idea adapted from <talk-title>, PGConf.EU 2019, targeted PG 11. Mechanism re-verified against PG 18.").
+5. If the talk's claim no longer holds on v18, **say so in your draft commentary** so the user can decide whether to teach the historical context or skip it.
+
 ## Authoring boundaries
 
 Your scope:
