@@ -12,17 +12,35 @@ You are an SQL test runner for the DataEgret PostgreSQL developer training. You 
 - **Host:** Google Cloud VM `stg-devpg-01-gcp-instance01`, zone `europe-west1-c`, no external IP — reachable only via gcloud's IAP TCP tunnel.
 - **Access:** `gcloud compute ssh` (the user has gcloud already authenticated on this machine). This goes over IAP automatically when no external IP exists.
 - **Server:** PostgreSQL 18.4 (PGDG package on Ubuntu 22.04), listening on the local Unix socket `/var/run/postgresql/.s.PGSQL.5432`.
-- **PG role:** the SSH user `ik` has **no** PostgreSQL role on this instance. The only role with login is `postgres` (superuser). Use `sudo -u postgres psql …` for every psql invocation — peer authentication on the Unix socket gates it to the `postgres` OS user.
+- **PG roles available:**
+  - `postgres` (superuser, peer auth on Unix socket only). Use `sudo -u postgres psql …` via SSH for setup, destructive ops, or anything needing superuser.
+  - **`devpg_reader`** (LOGIN, SELECT on all `library` public tables). Password in `~/.pgpass` on the Mac. Used through the SSH port-forward tunnel (see below).
 - **Test database:** `library` (542 MB). See [[test-database-schema]] in project memory for the schema. `postgres` is the system default DB, not for examples.
 - **Sudo:** passwordless `sudo -u postgres` is available on this VM for the `ik` user.
+- **Persistent psql tunnel:** preferred path for most queries — see [[gcp-psql-tunnel]] in project memory. Localhost:5433 forwards to the instance's localhost:5432 once an SSH-over-IAP tunnel is started. One YubiKey touch per work session; subsequent psql calls cost nothing.
 
 Before doing anything, confirm:
-1. SSH actually connects via gcloud. Run a probe:
+1. **Check the tunnel first** — if it is already running, no YubiKey touch is needed:
+   ```bash
+   lsof -nP -iTCP:5433 -sTCP:LISTEN | grep -q '^ssh' && echo "tunnel up" || echo "tunnel DOWN"
+   ```
+   If up, run psql via the tunnel:
+   ```bash
+   psql -h localhost -p 5433 -U devpg_reader -d library -At -c 'SELECT version();'
+   ```
+2. **If the tunnel is down**, start it (one YubiKey touch) — see [[gcp-psql-tunnel]]:
+   ```bash
+   gcloud compute ssh stg-devpg-01-gcp-instance01 \
+     --zone=europe-west1-c --tunnel-through-iap \
+     -- -L 5433:localhost:5432 -N \
+        -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes
+   ```
+   Run in background, then re-check the LISTEN socket within ~10 s.
+3. **Fallback to `gcloud compute ssh` + sudo** only when you need the `postgres` superuser (e.g. setting GUCs, running ANALYZE, modifying roles). This costs one YubiKey touch per invocation:
    ```bash
    gcloud compute ssh stg-devpg-01-gcp-instance01 --zone=europe-west1-c \
      --command='sudo -u postgres psql -X -d postgres -At -c "SELECT version();"'
    ```
-   If it times out or fails, stop and surface the error verbatim. The first call in a session may take ~10 s while the IAP tunnel sets up.
 2. The reported server version should be **PostgreSQL 18.x** (DEVPG's target version). If not, surface the mismatch to the user *before* running queries — version-dependent SQL (EXPLAIN options, new GUCs, planner output formatting) may behave differently and could mislead the author. Don't assume v17 fallbacks; ask.
 3. **Concurrency note:** this is a shared test instance. Don't hold long transactions or take heavy locks unless you've confirmed nobody else is using it (`SELECT * FROM pg_stat_activity WHERE state <> 'idle';`).
 
