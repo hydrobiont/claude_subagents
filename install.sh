@@ -39,16 +39,60 @@ else
   echo "  created: $SETTINGS_DST"
 fi
 
-# ── 3. MCP config ────────────────────────────────────────────────────────────
+# ── 3. MCP servers ───────────────────────────────────────────────────────────
+# Register each server from config/mcp.json with Claude Code's user-scope config
+# via `claude mcp add-json -s user`. This is the canonical way to make MCP servers
+# available across all projects on this machine. Existing servers (by name) are
+# skipped — we never clobber user-edited credentials.
+#
+# We also keep ~/.claude/.mcp.json as a portable, human-readable snapshot, but
+# Claude Code itself reads from ~/.claude.json (managed by `claude mcp …`).
 MCP_SRC="$REPO/config/mcp.json"
-MCP_DST="$CLAUDE/.mcp.json"
-if [ -f "$MCP_DST" ]; then
-  echo "  $MCP_DST already exists — skipping (edit manually if needed)"
+
+if command -v claude &>/dev/null && command -v python3 &>/dev/null; then
+  # For each server in our template, register it if not already known to claude.
+  python3 - "$MCP_SRC" "$HOME" <<'PY' > /tmp/_claude_mcp_to_add.sh
+import json, sys, pathlib, shlex
+src_path, home = sys.argv[1], sys.argv[2]
+src = json.loads(pathlib.Path(src_path).read_text().replace("$HOME", home))
+for name, cfg in src.get("mcpServers", {}).items():
+    # Skip placeholder credentials — let the user fill these in manually
+    env = cfg.get("env", {})
+    if any(v == "FILL_IN" for v in env.values()):
+        print(f'echo "  {name}: skipping — has FILL_IN credentials; add manually with: claude mcp add-json {name} ..."')
+        continue
+    # Emit a shell command that registers the server only if not already present
+    json_arg = shlex.quote(json.dumps(cfg))
+    print(f'if claude mcp get {shlex.quote(name)} >/dev/null 2>&1; then')
+    print(f'  echo "  {name}: already registered — skipping"')
+    print(f'else')
+    print(f'  claude mcp add-json {shlex.quote(name)} {json_arg} -s user && echo "  {name}: registered via claude mcp add-json"')
+    print(f'fi')
+PY
+  sh /tmp/_claude_mcp_to_add.sh
+  rm -f /tmp/_claude_mcp_to_add.sh
 else
-  # Substitute $HOME with actual path so Claude can read it literally
+  echo "  WARNING: claude CLI or python3 not in PATH — skipping MCP registration"
+  echo "           Add servers manually: claude mcp add-json <name> '<json>' -s user"
+fi
+
+# Also write a human-readable snapshot of the template at ~/.claude/.mcp.json
+# (project-scope, can be checked into project repos). This file is NOT the
+# canonical source — `claude mcp …` writes ~/.claude.json — but the snapshot is
+# useful for reference and for projects that want to share MCP config in-repo.
+MCP_DST="$CLAUDE/.mcp.json"
+if [ ! -f "$MCP_DST" ]; then
   sed "s|\$HOME|$HOME|g" "$MCP_SRC" > "$MCP_DST"
-  echo "  created: $MCP_DST"
-  echo "  NOTE: Fill in WORDPRESS_USERNAME and WORDPRESS_PASSWORD in $MCP_DST"
+  echo "  created snapshot: $MCP_DST (reference only; not used by Claude Code at runtime)"
+fi
+
+# ── 3b. Browser-operator persistent Chromium profile ─────────────────────────
+BROWSER_PROFILE_DIR="$CLAUDE/chrome-profile/playwright"
+if [ -d "$BROWSER_PROFILE_DIR" ]; then
+  echo "  browser profile dir already exists — skipping"
+else
+  mkdir -p "$BROWSER_PROFILE_DIR"
+  echo "  created: $BROWSER_PROFILE_DIR (empty — log in via scripts/browser-profile-setup.sh)"
 fi
 
 # ── 4. Project memory — de-website ──────────────────────────────────────────

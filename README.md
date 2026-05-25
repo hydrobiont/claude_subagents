@@ -18,8 +18,12 @@ Then follow the manual steps printed at the end.
 
 ```
 agents/          Custom sub-agents (linked into ~/.claude/agents)
+                   browser-operator    Browser automation via a dedicated, persistent Chromium profile
 skills/          Custom skills (linked into ~/.claude/skills)
                    technical-writer/   dba-docs-internal + trainings2025 writer
+scripts/
+  browser-profile-setup.sh  Bootstrap helper — opens the persistent Chromium profile
+                            so the user can log into a site once and reuse cookies forever
 config/
   claude-settings.json   ~/.claude/settings.json — plugins + settings
   mcp.json               ~/.claude/.mcp.json template — MCP server definitions
@@ -38,7 +42,8 @@ install.sh       Idempotent setup script
 | Agents symlink | `~/.claude/agents → ~/claude_subagents/agents` | automatic |
 | Skills symlink | `~/.claude/skills → ~/claude_subagents/skills` | automatic |
 | Claude settings | copies `config/claude-settings.json` → `~/.claude/settings.json` | automatic (skips if exists) |
-| MCP config | templates `config/mcp.json` → `~/.claude/.mcp.json` | automatic (skips if exists) |
+| MCP config | merges `config/mcp.json` into `~/.claude/.mcp.json` (adds new servers, never overwrites existing) | automatic |
+| Browser profile dir | creates `~/.claude/chrome-profile/playwright/` (empty) | automatic |
 | Project memory | copies `memory/de-website/MEMORY.md` into `~/.claude/projects/` | automatic (skips if exists) |
 | analytics-mcp | `pipx install analytics-mcp` | automatic if pipx available |
 | Plugins | prints `claude plugin install` commands | **manual** (require interactive approval) |
@@ -75,6 +80,53 @@ WORDPRESS_USERNAME  — your staging WP username
 WORDPRESS_PASSWORD  — WordPress Application Password
                       (WP Admin → Users → Edit user → Application Passwords)
 ```
+
+### playwright-persistent
+Playwright MCP server backed by a **dedicated, persistent Chromium profile** at
+`~/.claude/chrome-profile/playwright/`. Used exclusively by the `browser-operator`
+sub-agent. Survives restarts, isolated from your daily Chrome, never collides with
+the user's own browser sessions.
+
+- Package: `@playwright/mcp@latest` (npx, with `--user-data-dir`)
+- No credentials in config — logins are per-site, stored in the profile cookies.
+
+To log into a site for the first time:
+
+```bash
+~/claude_subagents/scripts/browser-profile-setup.sh https://dataegret.com/wp-admin/
+# A Chromium window opens, you log in, you close it → cookies saved.
+# Next agent invocation reuses the session.
+```
+
+Distinct from the official `playwright` plugin MCP (which uses an ephemeral
+profile with no saved logins). The browser-operator agent always uses
+`playwright-persistent`, never the ephemeral one.
+
+---
+
+## The `browser-operator` sub-agent
+
+A general-purpose browser automation agent, available from any project on any
+machine that has run `install.sh`. Drives the persistent Chromium profile above,
+so it never asks the user to grant Chrome extension permissions or log into sites
+twice.
+
+Invoke it from any session for web-UI tasks that cannot be done via API:
+
+```
+Agent({
+  subagent_type: "browser-operator",
+  prompt: "Set the Yoast 'noindex' flag on https://dataegret.com/wp-admin/post.php?post=1196&action=edit
+           (this is the 'Sorry to see you go!' page). Verify the front-end
+           https://dataegret.com/news-blog/sorry-to-see-you-go/ shows
+           'noindex, follow' in the robots meta tag after saving."
+})
+```
+
+The agent uses the persistent Chromium profile, snapshots the page to orient,
+performs the action, and verifies the change via both the admin UI and a
+`curl` of the front-end. If a login is missing, it stops and tells you which
+URL to run through `browser-profile-setup.sh`.
 
 ---
 

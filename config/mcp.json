@@ -19,6 +19,17 @@
         "WORDPRESS_USERNAME": "FILL_IN",
         "WORDPRESS_PASSWORD": "FILL_IN"
       }
+    },
+    "playwright-persistent": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--user-data-dir",
+        "$HOME/.claude/chrome-profile/playwright",
+        "--browser",
+        "chromium"
+      ]
     }
   }
 }
