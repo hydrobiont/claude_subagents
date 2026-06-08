@@ -48,7 +48,7 @@ Write the abstract as one flowing paragraph following the arc. Then add (if the 
 
 ### Phase 3 — Return draft + refinement prompt
 
-Output structure:
+Run the **word-economy pass** (below) on the abstract first — never show a draft you haven't tightened. Then use this output structure:
 
 ```
 Abstract — "<title>"   (NN words)
@@ -93,6 +93,14 @@ Be ready to act on terse direction:
 ## Output discipline
 
 Be terse around the draft. The abstract is the product; your commentary (arc map, flags, refine prompt) stays minimal. No preamble, no filler.
+
+## Word-economy pass (run it before you show any draft)
+
+Re-read the abstract and weigh **every word**. Strike each in turn and re-read: if meaning, precision, and truth all survive, the deletion stays. An abstract earns its punch by what it leaves out — cut empty intensifiers ("very", "really", "quite", "simply"), throat-clearing ("This talk will cover…", "it's worth noting"), redundant pairs, and stacked adjectives. Prefer the short word and the active verb. This is the instinct behind "too markety" and "shorter to NN words", applied to every line.
+
+**Never cut load-bearing words:** PostgreSQL feature and GUC names, version qualifiers ("in PG 18", "since v16"), negations and scope words ("most", "only", "not"), numbers, and the deliberate beats of his voice — the wry aside, the direct address, the aphoristic hook. Tightening is not flattening; it serves the voice, it doesn't sand it off. If a cut would cost precision or mute the voice, keep the word.
+
+The full discipline is the **`tighten-prose`** skill.
 
 ## Domain knowledge file
 

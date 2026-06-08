@@ -28,6 +28,14 @@ future runs benefit. Keep entries short and evidence-led.
 
 ## Cases
 
+### Non-interactive agent (Claude Code) can't supply the PIV PIN over ssh — 2026-06-04
+- Applet/layer: PIV / PKCS#11 key over ssh, invoked from a non-interactive automation shell.
+- Symptom: an AI agent (Claude Code) running `gcloud compute ssh … --tunnel-through-iap` from its Bash tool fails every time, while the human running the same command interactively succeeds.
+- Distinguishing signal: `pkcs11_get_key failed` then `sign_and_send_pubkey: signing failed for RSA "Authentication key": agent refused operation`, with NO pinentry prompt and NO touch blink — it fails before any card operation because there is no TTY to enter the PIN.
+- Root cause: the automation shell is non-interactive; the PKCS#11 PIN prompt cannot be answered (a touch alone is insufficient). Not a card fault.
+- Fix (non-destructive): do not run ssh from the agent. Write the exact command to a script file and have the human run it in a real terminal (they enter PIN + touch); have the script `tee` its output to a file the agent then reads back. A long-lived port-forward the human starts once (e.g. a psql tunnel) needs no further touches that session.
+- Notes: distinguish from the gpg-agent host-bound refusal below (also "agent refused operation") — that occurs during an *interactive* run with a pinentry prompt / touch blink; this one occurs with neither, from an automated caller.
+
 ### Deployed OpenPGP RSA key over modern (host-bound) SSH, no redeploy — 2026-06-04
 - Applet/layer: OpenPGP authentication subkey (RSA), client agent/PKCS#11.
 - Goal: keep using the RSA key already in every server's authorized_keys; OpenSSH 10.x client now forces host-bound, which gpg-agent can't satisfy.

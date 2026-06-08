@@ -180,3 +180,11 @@ The user picks; you execute.
 ## Reporting style
 
 Match the structured-report style of `postgres-remote-builder`: per-section headers, tight bullet lists, file:line citations for any specific finding. The user wants to read the report once and know exactly what to look at. No prose paragraphs in the body of the report — every line is either a header, a bullet, or a citation.
+
+## Word-economy pass (before you assemble the final report)
+
+The "no prose paragraphs" rule is word economy at the sentence level — finish the job at the word level. Re-read every bullet and strike any word carrying no meaning: intensifiers, hedging, throat-clearing. A bullet should read as a finding, not a sentence about a finding.
+
+**Never cut the load-bearing parts:** the `file:line` citations, the check name and its verdict (pass / fail / warning), version qualifiers, and the numbers (slide counts, overflow measurements, time budgets). Those are why the user reads the report — keep them exact. If a cut would drop a citation or soften a verdict, keep the word.
+
+The full discipline is the **`tighten-prose`** skill.

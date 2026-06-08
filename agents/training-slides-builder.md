@@ -1,6 +1,6 @@
 ---
 name: training-slides-builder
-description: Use this agent to compile and validate training slides in the `trainings2025` repository (`training/handbooks/`). It runs the DataEgret markdown-converter / Reveal.js pipeline, surfaces build errors, checks for structural problems (missing media, broken slide separators, malformed `<div class="notes">` blocks), and reports whether the output looks correct.\n\nInvoke this agent when:\n- The user adds, edits, or restructures content in `chapters/<id>/theory.md` or `chapters/<id>/demo.md` and wants to verify it compiles.\n- The user asks to "build the slides", "compile dev-02", "test the build", "make devpg", or similar.\n- A new chapter is added and the user wants to confirm it integrates into the track build.\n- After the devpg-slide-author agent generates new content — invoke this agent next to verify the compile.\n\nExamples:\n\nExample 1:\nuser: "I just added 5 slides to dev-02 about partial indexes. Can you make sure it builds?"\nassistant: "I'll use the training-slides-builder agent to compile chapter dev-02 and check for issues."\n<agent invocation>\n\nExample 2:\nuser: "Build the full DEVPG track and tell me if anything broke."\nassistant: "I'll launch the training-slides-builder agent to run `make devpg` and report the results."\n<agent invocation>\n\nExample 3 (proactive after author runs):\nuser: "OK, I like those new slides about EXPLAIN ANALYZE. Move on to BUFFERS."\nassistant: "Before we continue, let me have the training-slides-builder verify the EXPLAIN ANALYZE slides compile cleanly."\n<agent invocation>
+description: Use this agent to compile and validate training slides in the `trainings2025` repository (`training/handbooks/`). It runs the DataEgret markdown-converter / Reveal.js pipeline, surfaces build errors, checks for structural problems (missing media, broken slide separators, malformed `<div class="notes">` blocks, stale title dates, and trainer-only login instructions leaking into handouts), and reports whether the output looks correct.\n\nInvoke this agent when:\n- The user adds, edits, or restructures content in `chapters/<id>/theory.md` or `chapters/<id>/demo.md` and wants to verify it compiles.\n- The user asks to "build the slides", "compile dev-02", "test the build", "make devpg", or similar.\n- A new chapter is added and the user wants to confirm it integrates into the track build.\n- After the devpg-slide-author agent generates new content — invoke this agent next to verify the compile.\n\nExamples:\n\nExample 1:\nuser: "I just added 5 slides to dev-02 about partial indexes. Can you make sure it builds?"\nassistant: "I'll use the training-slides-builder agent to compile chapter dev-02 and check for issues."\n<agent invocation>\n\nExample 2:\nuser: "Build the full DEVPG track and tell me if anything broke."\nassistant: "I'll launch the training-slides-builder agent to run `make devpg` and report the results."\n<agent invocation>\n\nExample 3 (proactive after author runs):\nuser: "OK, I like those new slides about EXPLAIN ANALYZE. Move on to BUFFERS."\nassistant: "Before we continue, let me have the training-slides-builder verify the EXPLAIN ANALYZE slides compile cleanly."\n<agent invocation>
 model: sonnet
 color: blue
 ---
@@ -69,6 +69,18 @@ For each `theory.md` / `demo.md` you are about to build:
 4. **Image references resolve.** For every `<img src="medias/X" …/>`, verify `training/handbooks/medias/X` exists. List missing files.
 5. **Code-fence balance.** Count opening and closing ```` ``` ````. Must be even.
 6. **No accidental tabs inside `<div class="notes">`** (pandoc will treat tabs as code blocks). Warn on any tab character inside a notes block.
+7. **Title date matches the version.** `common/global.md` sets `date: <Month YYYY>`, which renders on every title slide and handout. It must agree with the chapter/track `header.md` `version: "YYYY.M"`. Flag a mismatch — e.g. `date: October 2025` while `version: "2026.6"` (should read `June 2026`). A stale date here silently brands every deck with the wrong month.
+   ```bash
+   grep -h '^date:' common/global.md                 # e.g. "date: June 2026"
+   grep -h '^version:' <chapter-or-track>/header.md   # e.g. version: "2026.6"
+   ```
+8. **Trainer-only blocks carry the handout-removal marker.** Demo files open with trainer-only setup — the gcloud SSH + `sudo -u postgres` login to the test VM `stg-devpg-01-gcp-instance01`, tunnel connection strings — which trainees must not see. That preamble must sit ABOVE a marker `<!-- the part above is to be removed later for handouts -->` (or "...handovers"); `scripts/strip-handout.awk` strips everything up to and including it from the handout build. Flag any `demo.md` that contains such instructions but is missing the marker — the build cannot strip it and it leaks into the handout.
+   ```bash
+   for d in chapters/*/demo.md; do
+     grep -qE 'gcloud compute ssh|sudo -u postgres|stg-devpg-01' "$d" || continue
+     grep -qE 'to be removed.*for hand(over|out)s' "$d" || echo "$d: trainer login present but NO handout-removal marker"
+   done
+   ```
 
 Report static-check failures with file path + line numbers in this format:
 ```
@@ -125,6 +137,12 @@ After the build returns 0:
    Compare against the number of `---` separators in the source `.slides.md` (off by ±1 is OK). A wild mismatch indicates pandoc misinterpreted something.
 3. **Pandoc warnings.** Capture stderr from the build and search for `WARNING:` lines. Report them — they don't fail the build but they often indicate the user will see something unexpected (e.g. unresolved cross-references, broken HTML).
 4. **Spot-check rendering**, if the user asked for visual validation, by opening the HTML in a browser or running headless-Chrome / decktape (see the `reveal-pdf` target in the converter). **Don't do this unprompted** — visual validation is slow and usually not what the user wants.
+5. **No trainer-only leakage in the handout.** The built `.handout.html` (and its `.handout.md` intermediate) must NOT contain trainer-only login instructions — `scripts/strip-handout.awk` removes them via the demo removal marker (static check 8). Grep the handout and expect 0:
+   ```bash
+   grep -cE 'gcloud compute ssh|sudo -u postgres|stg-devpg-01-gcp-instance01' _build/<path>/*.handout.html
+   ```
+   A non-zero count means a demo's trainer block lacked the marker, or its wording didn't match `strip-handout.awk` (which keys on `to be removed ... for hand(over|out)s`) — report which file. The slides build excludes `*demo.md`, so only handouts can leak.
+6. **Title date in the output.** Confirm the built deck shows the intended date: `grep -c '<intended Month YYYY>'` (e.g. `June 2026`) should be ≥ 1 and the previous date 0. This catches a `common/global.md` edit that didn't propagate (stale `_build`).
 
 ### Phase 5: Reporting
 
@@ -137,6 +155,8 @@ Static checks: <count passed / count failed>
 Build errors: <count>
 Pandoc warnings: <count>
 Slide count: <N> (expected ~<M>)
+Title date: <Month YYYY> (matches version <YYYY.M>? yes/no)
+Handout trainer-leak: <0 = clean | N hits with file:line>
 
 [If failures or warnings, list them with file:line]
 

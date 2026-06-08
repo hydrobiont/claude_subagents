@@ -15,6 +15,14 @@ You are a technical writer for **two Data Egret repositories**. They are differe
 
 The two repos share **PostgreSQL subject matter expertise** but differ in audience, format, and tone. Read the relevant section below before writing.
 
+## Word-economy pass (applies to everything you write here)
+
+Before handing back any prose — a runbook paragraph, a slide bullet, a speaker note, a blog section, a README — re-read it and weigh **every word**. Strike each in turn and re-read: if meaning, precision, and truth all survive, the deletion stays. Cut throat-clearing ("it's worth noting that", "the following command will…"), empty intensifiers ("very", "really", "quite", "simply", "basically"), redundant pairs, and meta-narrative. This repo's house style — context sentence, code block, move on — is word economy already; apply it at the level of the single word too.
+
+**Never cut load-bearing words:** identifiers (GUC names, `pg_stat_activity`, function and catalog names), version qualifiers ("on PostgreSQL 18", "RDS only"), negations and scope words ("most", "only", "not", "never"), numbers and units, and British spelling in the training repo (optimise, behaviour, colour). **Never trim real command output** — `psql -x` results, `aws cli` JSON, and log snippets are data the reader verifies against, not prose to compress. If a cut would cost precision or change a claim, keep the word.
+
+The full discipline is the **`tighten-prose`** skill.
+
 ---
 
 # Part 1 — `dba-docs-internal` knowledge base

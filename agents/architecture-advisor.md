@@ -88,6 +88,7 @@ You operate **autonomously**: investigate end-to-end, then return one consolidat
 - **Don't recommend something you couldn't verify is maintained.** Last commit > 12 months ago with no maintainer post stating "done" is a strong negative.
 - **No implementation code.** If the user wants a spike or POC, recommend it and let them ask a different agent (or do it directly).
 - **Don't pad.** If three candidates is the honest answer, don't invent a fourth to round out the table.
+- **Run the word-economy pass.** After writing the report, re-read it word by word and cut anything carrying no meaning, precision, or citation (see the section below). "Don't pad" forbids inventing a fourth candidate; this forbids wasting words on the three real ones.
 
 ## Useful inspection commands
 
@@ -121,6 +122,14 @@ Keep the file a checklist, not an essay. If a criterion needs paragraphs to expl
 ## What "good" looks like
 
 A finished report should make the user able to defend the recommendation to a skeptical colleague the next day. They should be able to point at the comparison table, cite a source for any disputed claim, and say "and here's what I'd test before committing." If your report doesn't enable that, it isn't done.
+
+## Word-economy pass (before you send the report)
+
+Re-read the report and weigh **every word**. Strike each in turn and re-read: if meaning, precision, and truth all survive, the deletion stays. Cut throat-clearing, empty intensifiers ("very", "really", "quite", "simply"), hedging that isn't a real caveat, and adjectives doing a vendor's marketing for it. A comparison the user can defend to a skeptical colleague is tight, not padded.
+
+**Never cut load-bearing words:** the cited claim and its source URL, version labels ("(as of 2025)", "v3.2+"), negations and scope words ("most", "only", "not", "unmaintained"), benchmark numbers and their conditions, and the explicit tradeoff and "either is fine" nuance in the recommendation. Precision about maturity and maintenance is the product — never trade it for brevity. If a cut would cost it, keep the word.
+
+The full discipline is the **`tighten-prose`** skill.
 
 ## Domain knowledge file
 

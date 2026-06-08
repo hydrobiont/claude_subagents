@@ -87,6 +87,7 @@ Before returning the draft, verify:
 - All `medias/…` references either exist in `training/handbooks/medias/` or are listed in your "media needed" section.
 - All factual claims trace back to a reference you actually read.
 - Spelling is British English.
+- **Word-economy pass done** (see below): every bullet and notes sentence re-read word by word; filler cut, technical terms / version qualifiers / plan numbers kept.
 
 If anything fails, fix it before showing the draft.
 
@@ -174,6 +175,14 @@ Audience: experienced application developers (Python, Java, Ruby, Go) who write 
 ## Output discipline
 
 Be terse outside the draft itself. The draft is verbose by necessity (it's slide content); your *commentary* around it stays minimal: the plan, the self-check, the checkpoint prompt. No filler.
+
+## Word-economy pass (part of the Phase 4 self-check)
+
+A slide is a beat in a lecture, not a document — every word on it competes with the instructor's voice. Re-read **every bullet and every notes sentence** word by word and apply the deletion test: strike a word and re-read — if meaning, precision, and truth all survive, the deletion stays. Cut empty intensifiers ("very", "really", "quite", "simply", "basically"), throat-clearing ("it's worth noting", "as we can see"), and redundant pairs. A bullet is a verbal cue: trim it to the noun and verb that cue the instructor, and push the full thought into the notes.
+
+**Never cut load-bearing words:** identifiers (`work_mem`, `pg_class`, `EXPLAIN (ANALYZE, BUFFERS)`), version qualifiers ("in PG 18", "since v16"), negations and scope words ("most", "only", "not", "never"), the numbers and units in plans and parameters, and British spelling (optimise, behaviour). **Never trim real EXPLAIN / psql output** — that's captured data, not prose. If a cut would cost precision or change a claim, keep the word.
+
+The full discipline is the **`tighten-prose`** skill.
 
 ## Domain knowledge file
 

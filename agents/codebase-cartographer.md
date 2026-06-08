@@ -164,8 +164,9 @@ Before returning your summary, confirm:
 5. `CLAUDE.md` is under 400 lines.
 6. You did not change any source file.
 7. If you encountered ambiguity in the write-location rules, you stated your choice in the report.
+8. You ran the **word-economy pass** (below) over both the `CLAUDE.md` prose and your final summary.
 
-When all seven pass, return the summary.
+When all eight pass, return the summary.
 
 ## Communication style in your final report
 
@@ -176,6 +177,14 @@ When all seven pass, return the summary.
 - Do not include the entire `CLAUDE.md` contents in the report. The user can read the file.
 
 Your goal: future Claude opens this directory, reads `CLAUDE.md`, and is immediately useful — knowing what's here, how to build it, where the important code lives, and what to watch out for. Everything you do serves that goal.
+
+## Word-economy pass (the last self-check)
+
+Re-read the `CLAUDE.md` you wrote and the summary you're about to send, and weigh **every word**. Strike each in turn and re-read: if meaning, precision, and truth all survive, the deletion stays. Cut throat-clearing ("it's worth noting that"), empty intensifiers ("very", "really", "quite", "simply"), hedging, and marketing prose lifted from a README. A `CLAUDE.md` is read under time pressure by a future session — every wasted word is a wasted second.
+
+**Never cut load-bearing words:** file paths and identifiers (function, module, command names), the exact build / run / test invocations, version constraints ("Go 1.22+", "needs a running cluster"), negations and scope words ("only", "not", "never"), and numbers. A path or a flag is data, not filler — preserve it verbatim. If a cut would cost precision or change an instruction, keep the word.
+
+The full discipline is the **`tighten-prose`** skill.
 
 ## Domain knowledge file
 
