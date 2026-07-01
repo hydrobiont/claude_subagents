@@ -45,6 +45,8 @@ This file is meant to evolve. After every research run the agent proposes 0–2 
 - Operational complexity — how many moving parts to keep healthy
 - Compatibility with existing stack (avoid introducing a parallel ecosystem when one is already in use)
 - Day-2 ops: patching, upgrading, backup / restore (for stateful systems)
+- For revenue-relevant systems run by one person, score "who fixes it at 3am, with what familiarity" explicitly — a boring mechanism the sole operator fully understands can beat a more capable one they'd debug under pressure.
+  - *Why:* a solo-operator WordPress deploy review re-weighted every candidate by single-operator failure recovery; it flipped atomic-releases/containers from "nice" to "not now".
 
 ### Performance
 - Independent benchmarks (with skepticism: who, what hardware, what workload?)
@@ -89,6 +91,8 @@ This file is meant to evolve. After every research run the agent proposes 0–2 
 - Cardinality / retention limits (for metrics / logs / traces backends)
 - Authentication & RBAC — OIDC, SAML, scoped tokens?
 - Audit log support if compliance matters
+- For deploy-tooling choices, separate the app's immutable surface (code) from its mutable runtime state — DB-resident content (e.g. Elementor page JSON), runtime-regenerated caches (e.g. Elementor CSS under uploads), uploads, ad-hoc-installed plugins. A tool that only protects the immutable slice adds surface without addressing the state that actually changes.
+  - *Why:* containerizing a WP+Elementor site looked attractive until it was clear the "immutable" image only covered the theme rsync already handled — Elementor's DB pages, regenerated CSS cache, and wp-admin plugin updates all stayed in mounted volumes.
 
 ---
 

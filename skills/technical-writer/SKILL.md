@@ -23,6 +23,8 @@ Before handing back any prose — a runbook paragraph, a slide bullet, a speaker
 
 The full discipline is the **`tighten-prose`** skill.
 
+**Technology and product names** follow the **`canonical-tech-names`** skill — each spelled exactly as the project spells itself (PostgreSQL, pgBackRest, PgBouncer, ClickHouse); identifiers inside code blocks, commands, and config are exact strings and are never rebranded to prose form.
+
 ---
 
 # Part 1 — `dba-docs-internal` knowledge base

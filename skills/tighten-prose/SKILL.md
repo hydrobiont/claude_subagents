@@ -1,10 +1,12 @@
 ---
 name: tighten-prose
 description: >-
-  Re-read finished prose and cut every word that doesn't earn its place — the
-  word-economy self-edit pass. Use when the user asks to tighten, trim, condense,
+  Re-read finished prose, cut every word that doesn't earn its place, and replace
+  vague or evaluative phrasing with the concrete fact — the word-economy and
+  precision self-edit pass. Use when the user asks to tighten, trim, condense,
   or shorten text; cut filler / fluff / padding; make something punchier or more
-  concise; remove needless or empty words; or do a final editing pass before
+  concise; remove needless or empty words; make a claim concrete instead of vague
+  or poetic; or do a final editing pass before
   shipping a draft (slide, speaker note, abstract, CFP submission, doc, runbook,
   report, commit message, email). Also the canonical discipline the Data Egret
   writing agents apply to their own drafts before returning them. Guards meaning:
@@ -62,6 +64,37 @@ what the text claims; it removes the words that dilute what the text already say
   "because", "at this point in time" → "now", "in the event that" → "if".
 - **Words the context already supplies:** "the colour blue", "merge together",
   "a total of 12 rows", "PostgreSQL database software".
+
+## The precision test — vague is not concise
+
+The deletion test catches words that say nothing. The opposite failure: a word
+that *survives* deletion — cutting it loses meaning — but the meaning it carries
+is **vague, evaluative, or poetic** rather than concrete. It passes the deletion
+test and still fails technical prose. Don't delete it — **replace it with the
+specific mechanism, value, or field name.**
+
+Ask of each claim: *says who, how much, by what mechanism?* If the honest answer
+is more specific than the words on the page, write that instead — the vague word
+is doing the reader's thinking for them, usually wrongly.
+
+- **Evaluative adjectives with no referent:** "better fidelity", "cleaner", "more
+  robust", "powerful", "seamless", "lightweight", "production-grade". Better than
+  *what*, measured *how*?
+- **Hand-wave verbs:** "handles", "supports", "leverages", "deals with". State
+  what it does.
+- **Vague quantifiers posing as data:** "fast", "scales well", "minimal
+  overhead", "large". Give the number or the bound, or drop the claim.
+
+| Vague (passes deletion, fails precision) | Concrete |
+|---|---|
+| "PeerDB's default envelope gives better delete fidelity." | "On DELETE, PeerDB's default envelope carries the pre-delete row in `old` (with `REPLICA IDENTITY FULL`); Debezium with schemas off sends `after = null`, so its tombstone row stores empty `content`." |
+| "Kompose output needs tweaks to run on Kubernetes." | "Kompose maps the catalog Service to the compose host port 9901, not 5432, so Temporal cannot reach it." |
+| "The Kafka engine consumes the topic cleanly." | Delete "cleanly" — it claims nothing the sentence doesn't already say. |
+
+Still a self-edit on finished prose, and it still **never invents facts**: if you
+don't know the concrete mechanism or number, that is a `TODO:` flag for the
+author, not licence to guess. A vague-but-honest sentence beats a
+concrete-but-fabricated one.
 
 ## What to NEVER cut (load-bearing words)
 
