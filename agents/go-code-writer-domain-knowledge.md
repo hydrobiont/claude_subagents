@@ -8,6 +8,26 @@ See the agent definition (`go-code-writer.md`) for the rules on what belongs her
 
 <!-- entries below; newest on top -->
 
+### `database/sql` cannot scan SQL NULL into a plain `string` — a nullable TEXT column must scan into `sql.NullString`
+
+Scanning a nullable column (`payload TEXT` with no NOT NULL) into `var s string` fails at `rows.Scan`/`row.Scan` with `converting NULL to string is unsupported` — and it fails *before* any "empty string means no value" branch in the decode helper can run, so a decode helper that treats `""` as nil is not enough. Scan into `sql.NullString`, then branch on `.Valid` (`!Valid` = SQL NULL → nil/zero value) and pass `.String` onward. Bit me in pg_tracer's `bundle.ReadVerdicts`: `WriteVerdict` never writes NULL (nil payload → `"{}"`), so the round-trip path never exercised NULL, but a hand-inserted or externally-written NULL row is legal per the schema and the read path must tolerate it. Same applies to `sql.NullInt64`/`sql.NullTime`/etc for any nullable column. modernc.org/sqlite behaves identically to the stdlib here (it's a pure `database/sql` driver).
+
+### `pgxpool.NewWithConfig` connects lazily — a syntactically valid but unreachable DSN does NOT error at `New`
+
+In pg_tracer's `pgxadapter.New`, passing `postgres://bad:bad@127.0.0.1:1/none` returns a live `*Conn` with `err == nil`: pgx's pool defers the first connection to first use (MinConns provisioning is async). The dial failure (`connect: connection refused`) surfaces only when a check runs `QueryRow(...).Scan(...)`. Consequence for a "no-PG fallback" collect path: the `New` error branch (log warning, proceed with `conn = nil`) fires only for an *unparseable* DSN, not an unreachable server — an unreachable server instead produces per-check *error verdicts* (the always-emit policy). Both are valid no-PG outcomes but they take different code paths; a smoke test with a bad host exercises the verdict path, not the nil-conn path. To force the nil-conn branch in a test, hand `New` a malformed DSN like `"://nope"`.
+
+### Collapsing `\n`→space is enough to keep a Markdown table row intact, but pgx multi-line errors also carry literal tabs
+
+pgx connection errors are multi-line AND tab-indented (`failed to connect...:\n\t127.0.0.1:1 ...`). When such an error string lands in a Markdown table cell, escaping pipes + collapsing newlines to spaces keeps the row on one line and the columns intact (tabs contain no `|`), so the table is *correct*. But the tabs render as cosmetic whitespace noise inside the cell. If a future cell-escaper wants clean output, also squash `\t` (and runs of whitespace) — it wasn't in this increment's escaping contract (pipes + newlines only), so left as a noted follow-up rather than silently added.
+
+### Two same-shaped `Conn` interfaces don't cross-satisfy when their `QueryRow` returns differ (`Row` vs `Row`)
+
+In pg_tracer, `internal/checks.Conn` and `internal/pgenv.Conn` both declare `QueryRow(ctx, sql, args...) X` — but `checks.Conn` returns `checks.Row` while `pgenv.Conn` returns `pgenv.Row` (each package defines its own single-`Scan`-method `Row` to stay independently importable). Go interface satisfaction requires the *method signature to match exactly*, return type included, so `checks.Conn` does NOT structurally satisfy `pgenv.Conn` even though the `Row` types are behaviourally identical. The prompt hinted "pass conn directly; if the compiler objects, define an adapter" — the compiler does object. Fix is a 3-line shim: `type pgenvConn struct{ conn checks.Conn }` with `func (a pgenvConn) QueryRow(...) pgenv.Row { return a.conn.QueryRow(...) }`. The returned `checks.Row` *does* satisfy `pgenv.Row` (identical `Scan(dest ...any) error` shape) — only the outer `Conn` return-type layer needs bridging. Recurring pattern whenever two packages each define a minimal driver surface to avoid importing each other.
+
+### Cross-`GOOS` lint: vet cross-compiles, but `go run <linter>` under a foreign `GOOS` fails with "exec format error"
+
+To verify a build-tagged file for another platform (e.g. a `//go:build linux` file while developing on darwin), `GOOS=linux go build/vet ./pkg/...` works — the toolchain compiles without executing. But `GOOS=linux go run honnef.co/go/tools/cmd/staticcheck@latest ./...` fails: `go run` builds a *linux* staticcheck binary and then tries to exec it on the host → `fork/exec ...: exec format error`. So `GOOS`-tagged files can't be staticcheck'd this way. Fall back to `GOOS=<target> go vet` for the tagged file (govet overlaps most of staticcheck's build-correctness checks) and run native staticcheck for the shared/untagged files. When `golangci-lint` isn't on PATH, `go run honnef.co/go/tools/cmd/staticcheck@latest ./pkg/...` reproduces the config's `staticcheck` linter offline via the module cache.
+
 ### `modernc.org/sqlite` driver name is plain `"sqlite"`, not `"sqlite3"`
 
 The `_ "modernc.org/sqlite"` blank import registers the driver under the name `"sqlite"` for `database/sql.Open`, where C-backed `github.com/mattn/go-sqlite3` registers `"sqlite3"`. Easy to swap drivers later, but the literal name differs — grep for `sql.Open("sqlite"` (not `"sqlite3"`) when porting code between the two.

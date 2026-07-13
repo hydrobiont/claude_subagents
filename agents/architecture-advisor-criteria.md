@@ -32,6 +32,8 @@ This file is meant to evolve. After every research run the agent proposes 0–2 
 - License, and license history — recent rugpulls are a major red flag (HashiCorp, Elastic, MongoDB, Redis Labs)
 - Security track record: CVEs reported, response time, public security policy
 - API stability — does every minor release break things?
+- When a vendor "recommends against X for production," check whether that recommendation is scoped to a deployment class (distributed / marketplace) that doesn't include yours.
+  - *Why:* Slack "recommends HTTP for production" yet explicitly calls Socket Mode "a reliable option" for non-Marketplace internal apps — the blanket line didn't apply to that deployment class.
 
 ### Developer experience
 - Documentation quality (fresh, accurate, covers real workflows, not just hello-world)
@@ -122,6 +124,13 @@ This file is meant to evolve. After every research run the agent proposes 0–2 
 - For OTel-flavoured formats specifically: which collectors / backends accept it without translation?
 - Live concurrent read while a writer is appending — can a second process query the in-flight file with arbitrary indexed/time-range queries? SQLite (WAL) yes; Parquet no (row-group flush boundary makes the tail invisible); JSONL yes-but-sequential; CSV yes-but-sequential.
   - *Why:* Decided the audit-tool bundle format (SQLite WAL) over Parquet for the live-viewer use case — Parquet's row-group cadence would have left the last 8–10 min of a 1-hour run invisible to the viewer.
+
+---
+
+## Chat / messaging-platform integrations
+
+- For each interaction surface the design relies on (slash command, button / menu, modal, ephemeral message, mention), verify it works for every user *federation class* present — workspace member, guest, external (Slack Connect / federated) — availability differs by class.
+  - *Why:* external Slack Connect members can't invoke slash commands but can click buttons; that reshaped which bot interface paths were reachable for customers.
 
 ---
 
