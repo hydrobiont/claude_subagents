@@ -35,6 +35,20 @@ install.sh       Idempotent setup script
 
 ---
 
+## Agent file conventions
+
+Each agent is `agents/<name>.md` — YAML frontmatter (`name`, `description`, `model`, `color`, optional `tools`) plus the agent's system prompt as the body. The paired `agents/<name>-domain-knowledge.md` is the agent's persistent cheat sheet, read at the start of every run.
+
+**Descriptions load into every session's context** (all of them, every session), so they stay compact:
+
+- YAML block scalar (`description: |`), under ~1000 characters.
+- Shape: charter sentence(s) → `Use when:` triggers → `Not for:` routing to the right agent or skill.
+- No example dialogues; no `#` characters (a `#` truncates the agent listing in the system prompt).
+
+Body conventions: `You are…` → domain facts → workflow → boundaries → report format → a short `tighten-prose` word-economy pass naming the agent's load-bearing tokens → the standard closing **Domain knowledge file** block (copy it from any agent and keep the wording identical across agents, so future protocol changes are one search-and-replace away).
+
+---
+
 ## What `install.sh` does
 
 | Step | What | Where |
@@ -149,12 +163,12 @@ Add to `~/.ssh/config`:
 
 ```
 Host de-staging
-  HostName svc.pgco.me
+  HostName svc2.pgco.me
   Port 50222
   User ik
 
 Host de-production
-  HostName svc.pgco.me
+  HostName svc2.pgco.me
   Port 50202
   User ik
 ```

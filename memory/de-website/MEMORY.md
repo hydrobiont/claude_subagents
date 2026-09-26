@@ -18,7 +18,7 @@ Custom theme: `wp-content/themes/data-egret/`
 - Multilingual: en-GB (primary), de-DE, ru-RU — using **Polylang** plugin
 - Page builder: **Elementor** + Elementor Pro
 - Custom theme: `data-egret` (custom PHP/JS, not a child theme)
-- Key plugins: ACF Pro, Contact Form 7, Polylang, All-in-One SEO, Yoast SEO, Real Cookie Banner, Custom Post Type UI
+- Key plugins: ACF Pro, Contact Form 7, Polylang, **Yoast (the active SEO plugin)**, **Complianz (the active consent banner)**, Custom Post Type UI. AIOSEO + Real Cookie Banner are installed but **inactive** (verified 2026-08-12)
 
 ## Google Analytics & GTM Setup
 GTM and GA4 are hardcoded in `header.php`, switched by language (`get_bloginfo('language')`):
@@ -34,18 +34,10 @@ GA4 property IDs (Analytics API):
 - `dataegret.com - GA4`: properties/356651240 (G-PLXB9VHN7B, en production)
 - `dev2.dataegret.com`: properties/526891673 (G-P3XRY2D4FB, en staging)
 
-Staging vs production switch for en-GB in header.php:
-```php
-$ga4_en_id = (strpos($_SERVER['HTTP_HOST'], 'dev2.dataegret.com') !== false) ? 'G-P3XRY2D4FB' : 'G-PLXB9VHN7B';
-```
+Host gating: since `1af34fa`, analytics are deny-by-default via `de_analytics_mode()` + `de_production_hosts()` allowlist in `environment-config.php` (header.php fail-closed).
 
 ## Custom Event Tracking
-`wp-content/themes/data-egret/js/ga-events.js` — custom JS tracking:
-- `panel_open` — modal/popup opens (Contact Form, Training, Consulting, etc.)
-- `phone_click` — phone link clicks
-- `email_click` — email link clicks
-- `form_submit` — CF7 success (form IDs: 159=Contact EN, 1576=Join Team EN, 1399=Contact DE)
-- `page_not_found` — 404 detection
+`js/ga-events.js`: `panel_open`, `phone_click`, `email_click`, `form_submit` (CF7 IDs: 159=Contact EN, 1576=Join Team EN, 1399=Contact DE), `page_not_found`.
 
 ## Existing GA4 Custom Dimensions (dataegret.com - GA4)
 cf7_status_message, contact_reason, discovered, formID, gtm_container,
@@ -59,61 +51,25 @@ and passed to GA4 via `gtag('config', id, params)` in `header.php`.
 - `page_type`: landing / article / archive / 404
 
 ## Server Access
-- Production SSH: `ssh -p 50202 ik@svc.pgco.me` (hardware YubiKey required — touch to auth)
-- Staging SSH: `ssh -p 50222 ik@svc.pgco.me`
+- **Gateway host is `svc2.pgco.me` (5.9.102.135) — NOT `svc.pgco.me`** (corrected + verified live 2026-08-10; the old host still resolves but no longer serves :50222/:50202, giving a misleading `Network is unreachable`). Repo docs (`CLAUDE.md`, `INFRASTRUCTURE.md`) are still stale on this.
+- Production SSH: `ssh -p 50202 ik@svc2.pgco.me` — hardware YubiKey required; no askpass, so a *direct* invocation cannot run unattended. **But one PIN goes a long way:** ask the user to open a ControlMaster (`ssh -fNM -S ~/.ssh/ctl-prod -o ServerAliveInterval=30 -p 50202 ik@svc2.pgco.me`), then every later `ssh -S ~/.ssh/ctl-prod ik@svc2.pgco.me 'cmd'` needs no prompt. **Trap:** `-fNM` fails if the socket file already exists (dead ones get left behind when a session skips `-O exit`) — `rm -f ~/.ssh/ctl-prod` first. Details: [Server access](de_website_ssh_access.md)
+- Staging SSH: `ssh -p 50222 ik@svc2.pgco.me` — **works unattended**; ignore the pkcs11/askpass stderr noise, auth falls through to a working key. Needs `dangerouslyDisableSandbox` (non-standard port).
 - WP root (both servers): `/data/www/blog`
 - DB credentials: `mysql -u wordpressuser -pwppasswordwp blog`
 - WP-CLI: staging only (`/usr/local/bin/wp`), NOT installed on production
 - Full infra docs: `de-website-3/INFRASTRUCTURE.md`
 
-## Elementor Canvas Pages — Known Issues & Fixes
-
-### Issue 1: False/duplicate Elementor nav on service pages
-
-**Root cause A**: Pages used `elementor_canvas` page template on production, which bypasses `get_header()` entirely. All navigation came from an Elementor-built header section inside `_elementor_data`. Staging used `page-elementor-full.php` (calls theme `get_header()` + `get_footer()`).
-
-**Fix A**: `UPDATE wp_postmeta SET meta_value='page-elementor-full.php' WHERE post_id IN (...) AND meta_key='_wp_page_template';`
-
-**Root cause B**: After fixing `_elementor_data` (removing nav widgets) and switching the page template, Elementor was still serving old rendered HTML from its server-side cache stored in `_elementor_element_cache` postmeta. The DB data was clean but the cache was stale.
-
-**Fix B**: `DELETE FROM wp_postmeta WHERE post_id IN (...) AND meta_key='_elementor_element_cache';`
-
-**Always do all three** when modifying Elementor page data or templates:
-
-1. Update `_wp_page_template`
-2. Delete `_elementor_element_cache`
-3. Delete `_elementor_css`
-
-**~~WARNING — Elementor publish resets page template~~ — RESOLVED 2026-04-13**: Previously, publishing from the Elementor editor reset `_wp_page_template` to `elementor_canvas` (production) or `default` (staging), requiring manual SQL fixes. Now handled by the `de_lock_elementor_full_template` hook in `functions.php` (`save_post_page`, priority 20). The hook re-enforces `page-elementor-full.php` on every save for any slug listed in `de_locked_full_template_slugs()` and clears `_elementor_element_cache` / `_elementor_css`. Adding a course to `de_course_catalog()` automatically extends this protection.
-
-If a NEW page should also be locked, add its slug to `de_locked_full_template_slugs()`. To unlock a page, remove its slug.
-
-**Legacy manual recipe (still works if the hook is disabled or for one-offs):**
-```sql
-UPDATE wp_postmeta SET meta_value='page-elementor-full.php' WHERE post_id=<ID> AND meta_key='_wp_page_template';
-DELETE FROM wp_postmeta WHERE post_id=<ID> AND meta_key IN ('_elementor_element_cache', '_elementor_css');
-```
-
-### Affected post IDs (Elementor canvas service pages)
-
-3295 (Courses), 4964, 5127, 5930, 6582, 6619, 6620, 7165 (Partners)
-
-### Issue 2: Corrupted Elementor JSON after Python SQL escaping
-
-**Root cause**: Using Python `val.replace("'", "\\'")` to escape SQL values is broken — double-escapes backslashes already in JSON (e.g. `\"`), producing invalid SQL/JSON.
-
-**Fix**: Always use `mysqldump --no-create-info --where="..."` to export Elementor data, then convert `INSERT INTO` → `REPLACE INTO`. Never hand-escape JSON for SQL. The most robust write-back is `UPDATE ... SET meta_value = UNHEX('<hex>')` — zero escaping concerns.
-
-### Issue 3: Unclosed HTML tags in widgets cause full-width sections to render nested
-
-**Symptom**: Top-level Elementor sections appear nested inside an earlier section in the DOM; backgrounds don't stretch edge-to-edge.
-
-**Root cause** (NOT structural data corruption): Widget text fields contain malformed HTML (unclosed `<div>`, truncated `<a href="..." rel="..."` without `>`). Browser swallows subsequent HTML into the open element, cascading the misparse.
-
-**Key diagnostic**: Parse `_elementor_data`, walk all widget text fields, count `<tag>` vs `</tag>` balance. Full detection + repair recipe in [elementor_unclosed_html_tags.md](elementor_unclosed_html_tags.md).
+## Elementor — canvas/template/cache issues
+- [Canvas issues & fixes](elementor_canvas_issues.md) — template-lock hook (`de_lock_elementor_full_template`), the mandatory trifecta (`_wp_page_template` + delete `_elementor_element_cache` + `_elementor_css`), safe JSON write-back (UNHEX / SQL REPLACE, never `$wpdb->update` — `%` breaks prepare), affected post IDs
+- [Unclosed HTML tags in widgets](elementor_unclosed_html_tags.md) — nested-section symptom; detection + repair recipe
 
 ## Collaboration Preferences
 - [No co-author in commits](feedback_no_coauthor.md) — never add Co-Authored-By Claude line
+- [Never touch out-of-scope hosts](feedback_no_out_of_scope_hosts.md) — ask explicitly; don't infer a bastion or route around a blocked path
+- [Server access, canonical](de_website_ssh_access.md) — `svc2.pgco.me`; staging runs unattended via `~/.ssh/id_rsa`, production needs one PIN then a ControlMaster; stale-socket trap
+- [Never edit Elementor text widgets via TinyMCE](feedback_no_tinymce_editing.md) — it strips `<style>` blocks and mangles card HTML; edit `_elementor_data` JSON instead
+- [Buyer intent ≠ blog traffic](seo_buyer_intent_insight.md) — blog readers are practitioners, not buyers; landing pages must target buyer queries
+- [Stripe: designated sandbox ONLY](feedback_stripe_sandbox_only.md) — never live mode or other sandboxes; verify context first; sk_test_ assertion off-prod; also in agent domain knowledge
 
 ## Deployment Schema (decided 2026-06-10)
 **CI-only SSH, scoped keys** — no manual SSH for deploys. Staging: `deploy-staging.yml` now also ships `wp-content/mu-plugins/` (rsync **without** `--delete`; backup + perms included). Pending Phase 2: scoped `deploy-stg`/`deploy-prod` users replace the personal `ik` key in GitHub Secrets; new `deploy-production.yml` gated by a `production` GitHub environment (org plan `team` supports required reviewers). Bump `actions/checkout@v4`/`ssh-agent@v0.9.0` before 2026-06-16 (Node 24 forced).
@@ -124,7 +80,33 @@ DELETE FROM wp_postmeta WHERE post_id=<ID> AND meta_key IN ('_elementor_element_
 - `mu-plugins/redirects.php`: rawurldecodes paths (Cyrillic slugs); 301 map for dead popups / `/ultimate-plan/` / `/ru/` / `/en/` / `resourses` typo; **410 catch-all** for any other `/popup/*`.
 - GSC baseline 2026-06: 287 indexed / 507 not-indexed; the Jun 1+9 notifications were popup-404s + dev2 sitemap noise (domain property `sc-domain:dataegret.com` covers subdomains). Full detail in `~/.claude/agents/de-website-manager-domain-knowledge.md`.
 
+## Blog Syndication
+- [Planet PostgreSQL syndication](planet_postgresql_syndication.md) — Planet pulls 9 **core** per-author `/category/<slug>/feed/` URLs; WP RSS Aggregator is unrelated + vestigial. Protect the slugs, they fail silently.
+
+## Database Volume
+- [Database bloat findings](database_bloat_findings.md) — DB is 97.9% junk (spam comments + Elementor revision copies); 1,137 MB → 24 MB verified cleanup recipe
+
+## Comment spam / W1 — DONE both environments 2026-08-10
+- [Antispam Bee option is corrupt](antispam_bee_option_corrupt.md) — real cause of the 177k spam backlog; repair the option, not the cron hook. **Shipped:** 781.9 MB reclaimed on staging, 741.5 MB on production; cron verified firing. Retention still 30 d (7 d recommended).
+- Session handoff: `de-website-3/HANDOFF-2026-08-10.md`; reusable scripts in `de-website-3/scripts/w1-*.sh`
+
+## WordPress.com migration PoC — DB IMPORT DONE (2026-08-13); FULL gate pending
+- [Status, posture, remaining steps, platform lessons](wpcom_poc_status.md) — read FIRST when resuming; points to handoff doc, the authoritative CHANGES-DB 2026-08-13 import entry, parity-delta ledger, and committed baseline
+- Hard rails: production untouchable; no DNS changes; never press wpcom "Sync"; test-spec artifact = the contract (SAFE/SMK/DBI/FULL)
+- Target `staging-7eb1-dataegret.wpcomstaging.com` (PHP 8.4); push `staging` deploys dev2 AND wpcom staging (merge-no-delete)
+
+## Course Booking → Odoo integration (spec v1.1, WP side reviewed 2026-08-15)
+- Contract: `de-website-3/specs/booking-integration-spec.md` (A = system contract, B = Odoo module, C = test suites, D = the four-loop dev cycle). WP side = mu-plugin `de-booking-bridge.php`, theme template `page-course-booking.php` (`/book/`), L1 runner `tests/booking/run-book-suite.sh`.
+- **One intake only**: REST `POST /wp-json/de/v1/booking`. The unused Elementor form path was removed in bridge 0.2.0 — a second intake path is a defect (the two had already drifted apart).
+- `course_code` = the WordPress **page slug** (`courses-postgresql-essentials-dba1`), never `dba1`. Applies to every fixture too.
+- Bridge **0.2.0**: 429 = retryable throttle (queue + back-off, same `booking_ref`, `Retry-After` honored as a *floor*, capped 1 h); every other 4xx terminal. **Odoo must keep signalling overload with 503 until a ≥ 0.2.0 bridge is actually deployed** — read the deployed version with `wp de-booking status`.
+- DB-only per environment (recipe in `CHANGES-DB.md`): the `/book/` page + `_wp_page_template=page-course-booking.php`, and options `de_booking_enabled` / `de_booking_endpoint` / `de_booking_secret` (**values never in git**). Live on **wpcom staging only** — dev2 404s, production has neither.
+- `/book/` is a native PHP template, not Elementor: no cache trifecta, and its slug must never enter `de_locked_full_template_slugs()` (that hook would force `page-elementor-full.php` over it on every save).
+- Version-controlled mu-plugins are now **6** (SMK-04's expected count).
+
 ## Active Plans
+- [Google Ads campaign plan](google_ads_plan.md) — €20/day test budget for 3 DBA courses; campaigns stay paused until verification completes
+- Remediation Plan (Aug 2026): `de-website-3/REMEDIATION-PLAN-2026-08.md` — W1 **done**; W2/W3/W4 open, all gated on the production deploy workflow
 - Analytics & Entity SEO Plan: `de-website-3/ANALYTICS-SEO-PLAN.md`
 - Course Schema & Carousel Plan: `de-website-3/COURSE-SCHEMA-PLAN.md`
 - SEO Audit & Quick-Wins: `de-website-3/SEO-AUDIT.md`
