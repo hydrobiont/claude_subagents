@@ -1,5 +1,21 @@
 # Data Egret Website Manager — Domain knowledge
 
+## 2026-08-14 — STANDING RULE (user directive): Stripe = ONE designated sandbox only
+
+The user opened a single Stripe **Sandbox** (account uses Google Workspace SSO;
+no standalone credentials exist) for the course-booking integration.
+**All Stripe work — configuration, keys, webhooks, test payments — happens
+ONLY inside that one sandbox. Never live mode, never another sandbox, never
+account-level settings.** Verify the sandbox context before ANY Stripe action;
+if the dashboard is not in that sandbox, stop and report.
+Sandbox identity + key storage (1Password dataegretgmbh vault item
+"Stripe SANDBOX … — course booking PoC"; macOS Keychain services
+`stripe-sandbox-secret` / `stripe-sandbox-publishable`) are pinned in
+browser-operator's domain knowledge from its first-entry report.
+Off-prod Odoo builds receive sandbox keys only (the re-arm runbook asserts the
+`sk_test_` prefix and refuses anything else). Live keys enter Odoo production
+only at the user-gated go-live step, entered by the user.
+
 Seeded technical + strategic map for the `de-website-manager` agent, distilled from a full inspection of the `de-website-3` repo (theme code, infra/deploy docs, and the SEO/analytics/ads planning corpus) on 2026-06-09. The agent reads this file at the start of every run, alongside the project `MEMORY.md`.
 
 The **SEEDED PROJECT KNOWLEDGE** below is the stable reference. The agent appends dated entries under the growth marker at the bottom as it learns. Verify any named file/function/slug/ID against current source before relying on it — the project moves.
@@ -15,10 +31,10 @@ The **SEEDED PROJECT KNOWLEDGE** below is the stable reference. The agent append
 
 ### Environments (full detail in `INFRASTRUCTURE.md`)
 - **Dev**: Docker, `localhost:8080`, container `dataegret_wordpress`, DB `wordpress/wordpress@db:3306`, Apache/PHP7.4/MariaDB. phpMyAdmin on 8081 (dev profile only) + MailHog — local only, never deploy.
-- **Staging**: `dev2.dataegret.com`, `ssh -p 50222 ik@svc.pgco.me`, WP root `/data/www/blog`, DB `blog / wordpressuser / wppasswordwp`, **WP-CLI present** (`/usr/local/bin/wp`), nginx + php7.4-fpm + OPcache. Noindex'd (`robots-config.php` Disallow:/). Has staging-only tweaks (Autoptimize, Elementor experiments — see `CHANGES-DB.md`).
-- **Production**: `dataegret.com` (+ .eu/.de/.ru/.net aliases, all behind Cloudflare), `ssh -p 50202 ik@svc.pgco.me`, WP root `/data/www/blog`, same DB creds, **NO WP-CLI**, nginx + php7.4-fpm + OPcache. Cloudflare in front (purge for asset/markup changes).
+- **Staging**: `dev2.dataegret.com`, `ssh -p 50222 ik@svc2.pgco.me`, WP root `/data/www/blog`, DB `blog / wordpressuser / wppasswordwp`, **WP-CLI present** (`/usr/local/bin/wp`), nginx + php7.4-fpm + OPcache. Noindex'd (`robots-config.php` Disallow:/). Has staging-only tweaks (Autoptimize, Elementor experiments — see `CHANGES-DB.md`).
+- **Production**: `dataegret.com` (+ .eu/.de/.ru/.net aliases, all behind Cloudflare), `ssh -p 50202 ik@svc2.pgco.me`, WP root `/data/www/blog`, same DB creds, **NO WP-CLI**, nginx + php7.4-fpm + OPcache. Cloudflare in front (purge for asset/markup changes).
 - Env detection: mu-plugin `environment-config.php` uses `WP_ENVIRONMENT_TYPE` then hostname; **under WP-CLI it defaults to production** (bites on staging — pass host/path).
-- SSH to either server needs a **YubiKey touch** → cannot run unattended.
+- SSH: **staging runs unattended, production needs the YubiKey** (re-measured 2026-08-10 — see the non-interactive-SSH section below for the exact stderr noise to ignore and the working invocation). Host is **`svc2.pgco.me`**, not `svc.pgco.me`.
 
 ### Deploy pipeline
 - **Staging = automated**: push to branch `staging` → `.github/workflows/deploy-staging.yml`: server backup (theme tar + `wp db export`) → rsync `theme only` (`-av --delete-after --partial`, no `-z`) → chown www-data, 755/644 → `wp cache flush` + `wp elementor flush-css` → **restart php7.4-fpm (clears OPcache) + reload nginx**. Manual equivalent: `scripts/deploy.sh`.
@@ -106,6 +122,12 @@ Account `159-128-5976` via MCC `665-380-3633`. Campaign 1 *DBA Courses–Search*
 
 <!-- entries below; newest on top -->
 
+### Booking bridge — the three traps the 2026-08-15 review turned up (bridge 0.2.0)
+**(1) A slug that ends in its own short code breaks substring fixtures.** The L1 runner built its BOOK-05 negative case as `${bad/dba1/nonexistent-course}`; once the fixture carried the canonical `courses-postgresql-essentials-dba1`, that rewrote the slug's *tail* into `courses-postgresql-essentials-nonexistent-course` — still a 422, so the test passed while asserting something nobody intended. Negative fixtures must replace the whole value (the runner's `fixture()` now takes `course_code` as a parameter). **(2) A duplicated intake path is a latent lie, not a fallback.** The Elementor `elementor_pro/forms/new_record` handler duplicated the REST route's reject-vs-retry logic, drifted, and ended up queueing 401/422 rejections while telling the visitor "your seat is recorded" — for a form that never existed. Removed rather than repaired; if one is ever needed again, wire it to the shared helpers. **(3) `Retry-After` is a floor, never a replacement.** 429 is now retryable on the existing queue ladder (1 m → 5 m → 30 m → 1 h → 2 h), but the header is applied as `max(ladder, retry_after)` and capped at 1 h — honoring it as a *replacement* would let a server answering "retry in 30 s" burn all five attempts in two minutes and give up. Cross-system gotcha worth remembering: the spec's 503-vs-429 rule is keyed on the **deployed** bridge version, which is invisible from Odoo — `wp de-booking status` prints it as its first line.
+
+### Committed test reports must never carry a portal access token (2026-08-15)
+v1.1 makes `payment_url` a tokenized customer-portal order page (`/my/orders/<id>?access_token=…`) — a forwardable, **payable** link by design. `tests/booking/reports/` is version-controlled, so any runner assertion that quotes a `payment_url` must strip the query string (`${PAY_URL%%\?*}`) before writing evidence. Same reflex applies to anything else that captures that URL: screenshots, logs, handoff notes. The rule is now in spec D2.7.
+
 ### Elementor is a first-class constraint in every infra/deployment decision (user directive 2026-06-10)
 When evaluating hosting/deploy/runtime changes, explicitly enumerate Elementor's surfaces before concluding: (1) page content is DB-resident JSON (`_elementor_data`) — never deployed by code pipelines; (2) runtime-regenerated CSS cache lives under `wp-content/uploads/elementor/css/` + `_elementor_css`/`_elementor_element_cache` postmeta — mutable state that breaks "immutable image" assumptions and needs flushing after PHP/plugin/env changes; (3) Elementor Pro is licence-bound to domains — migrations and staging URL changes touch licensing; (4) it is the most PHP-version-sensitive plugin in the stack — any PHP upgrade rehearsal must exercise the Elementor *editor*, not just the front-end.
 
@@ -123,3 +145,50 @@ GSC property is a **domain property** `sc-domain:dataegret.com` (the only one), 
 
 ### Production 404s to remediate (confirmed via curl 2026-06-09 — all 404, no existing redirect)
 `/popup/<slug>/` modal-CPT URLs (≥6 visible, mostly Russian slugs: `консультирование-postgresql`, `политика-конфиденциальности`, `marketing-assistant`, `менеджер-по-продажам`, autovacuum-workers…) — these map to the 13 `panel_open` modals in `ga-events.js`; the popup CPT is exposing public standalone URLs that 404. Also `/ultimate-plan/` (matches the `ultimate-plan` modal), `/ru/` + `/en/` (Polylang language-root artifacts; ru-RU content was removed), and `/news-blog/postgresql-resourses/` (the pre-rename **typo** slug — the corrected `postgresql-resources` returns 200). `redirects.php` currently holds only 5 hardcoded 404→301s and covers none of these. Fix options: add 301s in `redirects.php`; set the popup CPT `public=false`/`publicly_queryable=false` + exclude from sitemap so it stops minting indexable URLs; 301 the typo slug to the corrected one. The `/popup/postgresql-consulting/` overlay URL was already flagged polluting SERPs in the SERP-tracking baseline.
+
+### ⚠ Cloudflare WAF — a host-scoped OWASP skip protects the Odoo ERP; DO NOT remove or reorder it (2026-08-04)
+The `dataegret.com` zone (`d06ff7e352dbfd95b4944815d755f6fb`, **Pro Website**) fronts more than the website: **`odoo.dataegret.com` is an orange-cloud record pointing at the company's Odoo ERP on odoo.sh**, so this zone's WAF sits in front of a production ERP and its customer portal.
+
+On 2026-08-04 the **OWASP Core Ruleset** (running at Cloudflare defaults — score threshold 40, no overrides) was found blocking ordinary ERP traffic: the Odoo 2FA page `GET /web/login/totp` (score exactly 40 — locked a colleague out mid-invite), `POST /report/download` (45), `POST /website/form/helpdesk.ticket` (89), and any POST body containing SQL (fatal for a PostgreSQL consultancy whose customers paste queries into tickets).
+
+**Live mitigation — treat as load-bearing.** Managed-phase entrypoint ruleset `1d994ae8beb241c4bd895e0b1684f420`, rule **1** = `skip` → `rulesets: ["4814384a9e5d4991b9815dcfc25d2f1f"]` (OWASP Core) where `http.host eq "odoo.dataegret.com"`. Two hazards: the skip **must stay ahead of the two `execute` rules** (an exception placed after them skips nothing), and it must stay **host-scoped** — widening the expression would strip OWASP from the website too. The Cloudflare Managed Ruleset `efb7b8c949ac4650a09736fc376e9aee` stays on everywhere and still catches `/.git/*` scanners plus query-string SQLi on the Odoo host. Verified A/B after the change: identical SQL-body POST → `dataegret.com` **403 blocked**, `odoo.dataegret.com` reaches origin. **The apex's own protection is unchanged.**
+
+If you ever rebuild, reorder or migrate this zone's WAF rules for website reasons, re-assert that skip rule first or you re-break the ERP — with no symptom on the website at all.
+
+**Debugging trap worth knowing zone-wide:** a Cloudflare block page interpolates the **zone apex**, so a block on any subdomain still reads *"You are unable to access dataegret.com"*. Do not assume the apex was the target. Attribute by the response `server:` header and by `firewallEventsAdaptive` (`clientRequestHTTPHost`). Security Events retention on Pro is **24 hours** — grab evidence the same day; only OWASP events carry `score_total`/`score_rules`.
+
+### ⚠ In-scope hosts are exactly two — never route around a connectivity block (user directive 2026-08-10)
+This project touches **only** staging `svc2.pgco.me:50222` (server hostname `dev2`) and production `svc2.pgco.me:50202` (server hostname `blog`). That host is a **gateway that port-forwards to two separate servers**, which is why one IP serves both and why a bare-IP `https://<ip>/` returns 502 rather than the site.
+
+**⚠ The gateway is `svc2.pgco.me` (5.9.102.135) — corrected 2026-08-10, verified live.** The old `svc.pgco.me` (148.251.134.145) still resolves but **no longer serves these ports**; `:443` on it answers, `:50222`/`:50202` do not. `de-website-3/CLAUDE.md`, `INFRASTRUCTURE.md` and `MEMORY.md` all still say `svc.pgco.me` and are **stale** — prefer `svc2` and treat the repo docs as wrong here until they are fixed. Measured the same day: `svc2:50222` OPEN, `svc2:50202` OPEN, `svc:50222` FAILED, `svc:50202` FAILED.
+
+**`ap3.pgco.me` — the `mbt` alias in `~/.ssh/config` — is NOT part of this project.** Do not connect to it, tunnel through it, ProxyJump via it, or treat it as a bastion. On 2026-08-10 it was assumed to be one purely because it was the only reachable host in the user's SSH config; that assumption was wrong and explicitly rejected. **Nothing outside the two hosts above is in scope without asking first.**
+
+**Non-interactive SSH: staging YES, production NO (re-measured 2026-08-10 — supersedes the blanket "impossible").** `~/.ssh/config` has a `Host *` block setting `PKCS11Provider /opt/homebrew/lib/opensc-pkcs11.so` with **`IdentityAgent none`**, so every invocation *tries* the YubiKey PIV path first and fails noisily without an askpass binary. What happens next differs by host:
+
+- **Staging (`:50222`) works unattended.** The PKCS11 attempt fails, then auth **falls through to a working key** and the command runs. Expect this noise on stderr and ignore it — it is not an error:
+  `ssh_askpass: exec(/opt/homebrew/Cellar/openssh/10.3p1/libexec/ssh-askpass): No such file or directory` / `login failed` / `pkcs11_get_key failed` / `sign_and_send_pubkey: signing failed for RSA "Authentication key": agent refused operation`
+  Then it prints real output. Send SQL via `ssh ... 'mysql -u wordpressuser -pwppasswordwp blog -t' <<'SQL'` and add `2>/dev/null` to suppress the noise. Requires `dangerouslyDisableSandbox: true` (non-standard port).
+- **Production (`:50202`) does NOT work unattended.** The same PKCS11 failures repeat until the server cuts the connection: `Received disconnect ... Too many authentication failures`. The YubiKey PIN genuinely gates production, and there is no askpass binary installed to prompt with.
+
+Do **not** try to reach production by hopping from staging — a ProxyJump/jump-host hop is exactly what the user's standing directive forbids. Ask instead.
+
+**When the SSH ports are unreachable:** symptom is `connect to ... port 50222: Network is unreachable` — `ENETUNREACH`, uniform across ports 22/50202/50222, while `:443` on the same IP answers normally.
+
+**Check the hostname FIRST — on 2026-08-10 this exact signature was just the stale `svc.pgco.me`, not an allowlist.** Two hours went into sandbox theories and hunting for local port-forwards before the user supplied `svc2`. Diagnostic order: (1) `nc -z -w8 svc2.pgco.me 50222` — if OPEN the host was simply wrong; (2) only if `svc2` also fails, suspect a **source-IP allowlist** (user's public IP changed; nginx allowlists Cloudflare, UFW inactive per `INFRASTRUCTURE.md`). Then **report it and ask how access is normally granted.** Do not look for another route in.
+
+**A sandbox red herring to skip:** the Bash tool's sandbox blocks non-standard ports *and* silences `lsof -iTCP` (returns only a header, looking like "no listeners"). Re-run with `dangerouslyDisableSandbox: true` before concluding anything about listeners or tunnels — but note that in this incident the sandbox was **not** the cause; unsandboxed failed identically.
+
+**Verify which box you are on before any destructive DB work.** The staging/production split is one digit in a port number on a shared gateway, so assert on the server's own `hostname -s` (`dev2` vs `blog`) rather than trusting connection parameters.
+
+### WordPress.com migration program state + deploy-pipeline repairs (2026-08-10)
+
+**WordPress.com account:** Business plan site is **`dataegret.wpcomstaging.com`** (renamed from `dataegret.wordpress.com` by the Atomic transfer on 2026-08-10; old name 301s). Hosting features active; **data center EU West (Amsterdam)** (`geo_affinity=ams`); **PHP 8.4, WordPress 7.0.3** (no PHP 7.4 offered — 8.3/8.4 only); unlaunched = Coming-Soon, `robots.txt` serves `Disallow: /`. SFTP enabled: `sftp.wp.com:22`, user `dataegret.wordpress.com` (password shown once in UI — reset it to view again; never store it). SSH enabled but keyless — attaching a key is an account-level, user-policy decision (YubiKey project owns key policy). Staging site: **`staging-7eb1-dataegret.wpcomstaging.com`** (built 2026-08-10; a "Sync" button on the production overview appears once it exists — bidirectional, treat "push to production" as forbidden). GitHub Deployments: WordPress.com GitHub App **installed** on the `dataegret` org, scoped to the single repo `de-website-3` (installation id 152735027); connect-repo form verified: branches `main`/`staging` selectable, destination dir free-text (default `/`), Automated-deployments checkbox, Simple/Advanced radio. **Advanced mode = your own GitHub Actions workflow must upload an artifact with a required name; the form's "Workflow check" validates: valid YAML, triggered on push, artifact name.** Do NOT reuse `deploy-staging.yml` (that's the dev2 rsync pipeline — it fails the artifact check); author a dedicated `deploy-wpcom-*.yml`. **Staging site connected and deploying** (2026-08-10): repo → branch `staging`, destination `/`, Advanced mode, auto-deploy ON, workflow `.github/workflows/deploy-wpcom-staging.yml` (uploads artifact named `wpcom` containing ONLY theme+mu-plugins; passed all three wpcom checks). First deployment `82f8cc8` verified: theme assets 200, repo docs 404, SAFE-02 zeros. Every push to `staging` now deploys BOTH dev2 (rsync) and wpcom staging (artifact) — two green workflows on one push. Production site connection deferred to `main` (manual) at cutover; per docs one repo→one destination per connection, so use Advanced mode, destination `/`, artifact assembling `wp-content/themes/data-egret/` + `wp-content/mu-plugins/`; deployments **merge, never delete** — stale-file check required (spec SMK-05). Plan is billed **monthly €60** — annual €300/yr pending user decision. The original signup site `ik734f65b41b03f-tilhr.wordpress.com` had a **WordPress.com-run "Incoming Migration" request** that locked its entire hosting dashboard (`/hosting-config` 404s, everything redirects to `/migration-overview`, no cancel button); plan was refunded off it and the site queued for user-click deletion — deleting the site extinguishes the stuck request. **Lesson: never submit the WordPress.com migration-request flow for this project** — it locks the dashboard for days and expects production credentials. The PoC is manual assembly from dev2 per `wpcom-migration` plan; test contract lives in the wpcom-test-spec artifact (SAFE/SMK/DBI/FULL suites).
+
+**Staging deploy pipeline repaired the same day** (was broken since the gateway move; last green run 2026-06-10): GitHub secrets `SSH_HOST`→`svc2.pgco.me`, `SSH_PORT`→`50222`; `/home/github-deploy` was owned `root:root` so the CI user couldn't `mkdir ~/backups` — chowned to `github-deploy`. CI auths as dedicated `github-deploy` user (scoped NOPASSWD sudoers: rsync/chown/chmod/find/systemctl), NOT the personal `ik` key.
+
+**Analytics gate (Phase 2a/2b) shipped in `1af34fa`:** `de_analytics_mode()` + `de_production_hosts()` allowlist in `environment-config.php`; header.php fail-closed (`'none'` if helper missing); robots fallback flipped to staging. Verified live: dev2 serves 0 production GA4 IDs, staging `G-P3XRY2D4FB` intact, `Disallow: /`.
+
+**Gotcha class discovered — Complianz resurrects comment-wrapped scripts:** its output filter rewrites `<script>` tags **inside HTML comments** into consent-gated `text/plain` tags, so "commented-out" tracking snippets in `ihaf_insert_header` still emit their IDs into served HTML on every host. Removed on staging (rollback `/home/ik/ihaf_insert_header.bak-20260810`); **production still carries the block** — remove at cutover. When auditing tracking, grep the *rendered page*, never trust source comments.
+
+**Pre-existing quirk, unfixed:** `/startseite/` (German homepage) renders with `en-GB` analytics on dev2 — Polylang language detection is off for it on staging. Off-production it's silenced by the gate; flagged for someday.

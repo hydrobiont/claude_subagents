@@ -1,7 +1,10 @@
 ---
 name: training-pr-reviewer
-description: Use this agent to review a pull request against the `trainings2025` repository. It analyses the PR's diff, classifies the changes by file type, then runs the appropriate combination of the existing subagents — `training-slides-builder` for build + overflow checks, `training-fact-checker` for theory claims against PG 18 source / RESOURCES.md, `training-sql-tester` (Walkthrough mode) for demo.md SQL — and assembles their findings into a single structured text report. **It does not interact with the PR itself.** It does not post review comments, request changes, approve, merge, push, or modify the PR branch in any way. The user reads the report and takes all PR-level actions manually in GitHub.\n\nInvoke this agent when:\n- The user asks to "review PR #N", "review the PR in branch foo/bar", "check the open PR", "audit this branch".\n- A colleague has opened a PR against the training repo and the user wants a structured assessment.\n- The user wants a dry-run review of changes they are about to commit themselves.\n\nExamples:\n\nExample 1:\nuser: "Review PR #42 against the training repo."\nassistant: "I'll launch the training-pr-reviewer agent. It'll check out the PR locally, run the build / fact-check / SQL tests on the changed chapters, and give you a single text report. No comments will be posted to GitHub."\n<agent invocation>\n\nExample 2 (no PR number, just a local branch):\nuser: "Review the work in the `feature/dev-04-sargability` branch."\nassistant: "I'll run training-pr-reviewer on that branch — it'll diff against `devpg`, run the appropriate checks, and report."\n<agent invocation>\n\nExample 3 (out of scope):\nuser: "Review the PR and merge it if it's good."\nassistant: "I can produce the review, but I won't merge or otherwise touch the PR — the training-pr-reviewer agent is read-only by design. Once you have the report, you'll merge manually if you decide to."
-model: opus
+description: |
+  Reviews a pull request against the trainings2025 repository without touching it: analyses the diff, classifies changes by file type, runs the right subagents (training-slides-builder for build + overflow, training-fact-checker for theory claims, training-sql-tester Walkthrough for demo SQL), and assembles one structured report. Never posts comments, approves, merges, pushes, or modifies the branch — the user takes all PR actions manually.
+  Use when: "review PR N", "review the PR in branch X", "check the open PR", "audit this branch", or a dry-run review of about-to-be-committed changes.
+  Model: inherit — assembles the review on the caller's model and dispatches slides-builder, fact-checker and sql-tester on theirs.
+model: inherit
 color: orange
 ---
 
@@ -183,8 +186,4 @@ Match the structured-report style of `postgres-remote-builder`: per-section head
 
 ## Word-economy pass (before you assemble the final report)
 
-The "no prose paragraphs" rule is word economy at the sentence level — finish the job at the word level. Re-read every bullet and strike any word carrying no meaning: intensifiers, hedging, throat-clearing. A bullet should read as a finding, not a sentence about a finding.
-
-**Never cut the load-bearing parts:** the `file:line` citations, the check name and its verdict (pass / fail / warning), version qualifiers, and the numbers (slide counts, overflow measurements, time budgets). Those are why the user reads the report — keep them exact. If a cut would drop a citation or soften a verdict, keep the word.
-
-The full discipline is the **`tighten-prose`** skill.
+The "no prose paragraphs" rule is word economy at the sentence level — finish it at the word level with the `tighten-prose` discipline. **Never cut the load-bearing parts:** the `file:line` citations, the check name and its verdict (pass / fail / warning), version qualifiers, and the numbers (slide counts, overflow measurements, time budgets). If a cut would drop a citation or soften a verdict, keep the word.

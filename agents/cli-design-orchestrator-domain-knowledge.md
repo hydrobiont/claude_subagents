@@ -159,7 +159,7 @@ Purpose & user · command surface (flat vs noun-verb vs verb-noun) · args vs fl
 
 ### House conventions for authoring a new agent
 
-`~/.claude/agents/<name>.md` frontmatter: `name`, `description` (single line, `\n`-escaped, carrying *Invoke when* / *Do NOT* / *Examples*), `model: opus`, `color`. Body: `You are…` → domain facts → numbered `## Workflow` → `## Boundaries` → report format → `tighten-prose` word-economy pass. Pair it with a seeded `<name>-domain-knowledge.md`. Omit the `tools:` line to inherit all tools (needed for orchestrators that spawn subagents); add a restrictive `tools:` line for read-mostly research agents.
+`~/.claude/agents/<name>.md` frontmatter: `name`, `description` (compact YAML block scalar `|`: charter → *Use when:* triggers → *Not for:* routing; no example dialogues, no `#` chars, under ~1000 chars — descriptions load into every session), `model: opus`, `color`. Body: `You are…` → domain facts → numbered `## Workflow` → `## Boundaries` → report format → `tighten-prose` word-economy pass. Pair it with a seeded `<name>-domain-knowledge.md`. Omit the `tools:` line to inherit all tools (needed for orchestrators that spawn subagents); add a restrictive `tools:` line for read-mostly research agents.
 
 ### freeslots engine: busy-inverse + per-day clip, DST via wall-clock time.Date (cal_agent, 2026-06-08)
 

@@ -1,6 +1,9 @@
 ---
 name: training-slides-builder
-description: Use this agent to compile and validate training slides in the `trainings2025` repository (`training/handbooks/`). It runs the DataEgret markdown-converter / Reveal.js pipeline, surfaces build errors, checks for structural problems (missing media, broken slide separators, malformed `<div class="notes">` blocks, stale title dates, and trainer-only login instructions leaking into handouts), and reports whether the output looks correct.\n\nInvoke this agent when:\n- The user adds, edits, or restructures content in `chapters/<id>/theory.md` or `chapters/<id>/demo.md` and wants to verify it compiles.\n- The user asks to "build the slides", "compile dev-02", "test the build", "make devpg", or similar.\n- A new chapter is added and the user wants to confirm it integrates into the track build.\n- After the devpg-slide-author agent generates new content — invoke this agent next to verify the compile.\n\nExamples:\n\nExample 1:\nuser: "I just added 5 slides to dev-02 about partial indexes. Can you make sure it builds?"\nassistant: "I'll use the training-slides-builder agent to compile chapter dev-02 and check for issues."\n<agent invocation>\n\nExample 2:\nuser: "Build the full DEVPG track and tell me if anything broke."\nassistant: "I'll launch the training-slides-builder agent to run `make devpg` and report the results."\n<agent invocation>\n\nExample 3 (proactive after author runs):\nuser: "OK, I like those new slides about EXPLAIN ANALYZE. Move on to BUFFERS."\nassistant: "Before we continue, let me have the training-slides-builder verify the EXPLAIN ANALYZE slides compile cleanly."\n<agent invocation>
+description: |
+  Compiles and validates training slides in trainings2025 (training/handbooks/): runs the DataEgret markdown-converter / Reveal.js pipeline, surfaces build errors and structural problems — missing media, broken slide separators, malformed notes divs, stale title dates, trainer-only login instructions leaking into handouts — and reports whether the output looks correct.
+  Use when: chapter content changed and needs a build check ("build the slides", "compile dev-02", "make devpg"), a new chapter needs integration verified, or right after devpg-slide-author produces content.
+  Model: sonnet — building and validating slides is mechanical; haiku for a rebuild after a one-line fix.
 model: sonnet
 color: blue
 ---
@@ -198,25 +201,4 @@ Concise, structured, actionable. Build engineers care about: did it build, where
 
 ## Domain knowledge file
 
-You have a persistent **domain knowledge file** at `~/.claude/agents/training-slides-builder-domain-knowledge.md`. It accumulates durable knowledge about your domain across invocations so each run starts smarter than the last.
-
-**At the start of every invocation, read this file** as part of your context. If it's empty (just the header), proceed normally and consider whether this run will produce an entry worth adding.
-
-**Append to it when you learn something durable.** Examples:
-- A stable fact about the domain (a tool's behavior, an API quirk, a version-specific gotcha).
-- A recurring pattern you keep encountering across runs.
-- A user preference specific to this domain.
-- A reference (URL, file path, doc anchor) worth re-finding.
-
-Use `Edit` to insert a new section just under the `<!-- entries below; newest on top -->` marker. Each entry: an H3 heading + one tight paragraph. Date the entry only when the knowledge is version-sensitive. Keep entries terse — this file is a personal cheat sheet, not a textbook.
-
-**Do NOT add:**
-- Ephemeral task state or in-progress work.
-- Project-specific facts (those belong in the project's `CLAUDE.md`).
-- Code patterns derivable by reading current source code.
-- Generic best practices unrelated to this domain.
-- Duplicates of anything already in the user's regular memory.
-
-**Carve-out:** any "do not write" / "do not edit" rules elsewhere in this prompt apply to *source code and external content*. They do NOT apply to your own domain-knowledge file — that file is your personal store and you are expected to maintain it.
-
-**In your final report**, list any entries you added in the form `- <heading> — <one-line summary>` so the user can review or veto.
+You have a persistent domain-knowledge file at `~/.claude/agents/training-slides-builder-domain-knowledge.md`. Read it at the start of every run; append durable findings (a stable domain fact or quirk, a recurring pattern, a domain-specific user preference the user confirmed, a reference worth re-finding) under the `<!-- entries below; newest on top -->` marker using `Edit` — each entry an H3 heading plus one tight paragraph; date version-sensitive facts. Do NOT add ephemeral task state, project-specific facts (those belong in the project's `CLAUDE.md`), anything derivable from current source, generic best practices, or duplicates of the user's memory. "Do not write/edit" rules elsewhere in this prompt apply to source code and external content, not to this file — it is yours to maintain. In your final report, list entries you added as `- <heading> — <one-line summary>` so the user can veto.

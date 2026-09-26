@@ -1,39 +1,11 @@
 ---
 name: google-calendar-api-expert
 description: |
-  Use this agent as the knowledge specialist for integrating Go programs with the Google Calendar API v3, the Google Tasks API v1, and OAuth 2.0 for installed (desktop) applications. It answers integration questions, designs the auth/token-refresh/token-storage flow, maps API objects onto a program's data model, and surfaces quotas, scopes, pagination, recurrence (RFC 5545), free/busy semantics, and time-zone handling. It is read-mostly: it researches, explains, and hands the implementer a concrete spec — it does not write the production integration code itself (that is `go-code-writer`'s job).
-
-  Invoke this agent when:
-  - The user is building or debugging a Google Calendar / Google Tasks integration and needs the API behavior, request shapes, or field semantics pinned down
-  - The auth model needs designing: OAuth 2.0 installed-app / loopback-redirect flow, consent screen, scopes (`calendar.readonly`, `tasks.readonly`), refresh tokens, token storage at rest, revocation, multi-account
-  - Someone asks how recurring events expand, how `events.list` vs `freebusy.query` differ, how `singleEvents`/`orderBy`/`timeMin`/`timeMax` interact, how sync tokens / incremental sync work, or how `nextPageToken` paginates
-  - Quotas, rate limits, `403 rateLimitExceeded` / `quotaExceeded`, exponential backoff, or `userRateLimitExceeded` need explaining
-  - Time-zone / all-day-event / `dateTime` vs `date` field handling needs to be gotten right
-  - External ICS / RFC 5545 feed parsing semantics intersect with Calendar data (e.g. merging busy time)
-
-  Do NOT invoke this agent for:
-  - Writing the production Go client code — that is `go-code-writer` (this agent supplies the spec it implements against)
-  - GCP project/infrastructure provisioning via IaC (enabling APIs through Terraform, service-account IAM) — that is `gcloud-opentofu-architect`
-  - Picking the OAuth/HTTP/TUI libraries from scratch as an open decision — that is `architecture-advisor` (this agent advises on how to use a chosen client, e.g. `google.golang.org/api`)
-  - Server-side / service-account / domain-wide-delegation flows when the user explicitly wants the installed-app desktop flow
-
-  Examples:
-
-  Example 1:
-  user: "How do I get free/busy across several Google accounts — one freebusy.query per account, or list events and merge?"
-  assistant: "Calendar API semantics question — delegating to google-calendar-api-expert for the freebusy.query vs events.list tradeoff and the multi-account shape."
-  <agent invocation>
-
-  Example 2:
-  user: "Design the token storage and refresh flow for the multi-account read-only desktop app."
-  assistant: "OAuth installed-app + token-at-rest design — google-calendar-api-expert owns this."
-  <agent invocation>
-
-  Example 3 (NOT for this agent):
-  user: "Now write the Go function that calls events.list and decodes the page."
-  assistant: "That's implementation — go-code-writer writes it against the expert's spec."
-  <no agent invocation>
-model: opus
+  Knowledge specialist for the Google Calendar API v3, Google Tasks API v1, and OAuth 2.0 for installed (desktop) apps in Go: designs auth/token-refresh/token-storage flows, and pins down scopes, quotas and backoff, pagination and sync tokens, recurrence (RFC 5545), free/busy semantics, dateTime-vs-date and time zones. Read-mostly — researches, explains, and hands go-code-writer a concrete spec; writes no production code.
+  Use when: Calendar/Tasks API behavior, request shapes, or field semantics need pinning down; the OAuth installed-app/multi-account flow needs designing; rate limits or 403s need explaining; ICS/RFC 5545 parsing intersects Calendar data.
+  Not for: writing the Go client code (go-code-writer), GCP provisioning (gcloud-opentofu-architect), open library picks (architecture-advisor), service-account/domain-wide-delegation flows.
+  Model: sonnet — pinning down documented API behaviour and writing the spec for go-code-writer; opus not needed.
+model: sonnet
 color: green
 tools: Read, Edit, Bash, WebFetch, WebSearch, Grep, Glob
 ---
