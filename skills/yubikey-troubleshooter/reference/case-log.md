@@ -28,6 +28,18 @@ future runs benefit. Keep entries short and evidence-led.
 
 ## Cases
 
+### SSH CA on YubiKey — architecture facts worth not re-deriving — 2026-08-10
+- Applet/layer: PIV + OpenPGP, CA/certificate design (not a fault — planning case).
+- **No private key export exists on either applet.** `ykman piv keys export` exports the *public* key only; OpenPGP has no export subcommand (its `import` is for the attestation key alone). No PIN/PUK/mgmt-key/possession changes this. So a YubiKey cannot be cloned from a card you hold — two cards share a key only if it was generated off-card and imported twice.
+- **`cert-authority` is an `authorized_keys` option, not just `sshd_config`.** A line like `cert-authority,principals="ik" ssh-ed25519 AAAA… CA` makes a host trust a CA with **no sshd access**. Huge for hosts where you only ever get a home-directory line. `principals="…"` makes the principal your *identity* rather than the target username (so the line can sit in `~postgres/.ssh/authorized_keys` and a cert with `-n ik` logs in as `postgres`).
+- **`RevokedKeys` is `sshd_config`-only** — no `authorized_keys` equivalent. On hosts without sshd access, certificate **expiry is the only revocation lever**. Plan validity accordingly.
+- **CA key can live on the card:** `ssh-keygen -s ca_key.pub -D <pkcs11.so> -I id -n user user_key.pub` — `-s` takes the CA's *public* half, `-D` the module. (`-U` is the ssh-agent equivalent.) Because the key can't be exfiltrated, the signing station needn't be air-gapped; touch policy `always` caps an attacker at one signature per physical touch.
+- **`CertificateFile` works with a `PKCS11Provider` key** (stated explicitly in `ssh_config(5)`). So an existing card key can gain a certificate with *no* new key and *no* card change — the migration to a CA is fully incremental.
+- **OpenSSH certificates do not chain** — no intermediate CA, ever. Multiple trust anchors deployed side by side is the only "hierarchy" available.
+- **Firmware thresholds:** PIV gets Ed25519/X25519/RSA-3072/4096 only at **5.7.0+**; the OpenPGP applet has had Ed25519/cv25519 since **5.2.3**. So on a 5.4.x card, PIV tops out at ECCP384 while OpenPGP can do Ed25519 — the one place OpenPGP beats PIV on older hardware.
+- **GCP OS Login runs its own CA with 5-minute certs and accepts no BYO CA** — those VMs can't join a private SSH CA. Registering the card's pubkey in the OS Login profile does work.
+- Notes: a card serving SSH via the OpenPGP applet with *no* OpenPGP certificate in the keyring (`General key info..: [none]`, `gpg -k` empty of own keys) is a bare PKCS#11 keystore — it pays every OpenPGP cost (scdaemon contention, no PUK, reset code at 0, gpg-agent host-bound gap) and collects no OpenPGP benefit. Worth spotting early and naming.
+
 ### Non-interactive agent (Claude Code) can't supply the PIV PIN over ssh — 2026-06-04
 - Applet/layer: PIV / PKCS#11 key over ssh, invoked from a non-interactive automation shell.
 - Symptom: an AI agent (Claude Code) running `gcloud compute ssh … --tunnel-through-iap` from its Bash tool fails every time, while the human running the same command interactively succeeds.

@@ -1,0 +1,23 @@
+{
+  "skill_name": "odoosh-operations",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "What is the real test result of the latest build on branch dev/datev-feed-receipts? Give me the tally line and any ERROR lines, and say which build id you read.",
+      "expected_output": "Names a specific build id and branch read live from the odoo.sh dashboard, with the branch confirmed from the page's own heading rather than assumed from a constructed URL; quotes the odoo.tests.result tally line verbatim plus the module's own odoo.tests.stats line; lists any ERROR-level lines found in install.log, or states plainly that none were found; treats the status badge only as a secondary signal, never as the verdict; reads the whole log rather than only the tail; performs no push, rebuild, or deploy.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "A build card on odoo.sh says 'At least one test failed when loading the modules (de_fin_mail)' but the log says 0 failed, 0 errors. Explain what is going on and what to check.",
+      "expected_output": "Explains that odoo.sh fails a module on any ERROR-level log line during its tests, independent of the pass/fail tally, citing the confirmed build 38535645 case and the assertLogs fix pattern; instructs grepping install.log for ERROR-level lines (not just the tally) and checking whether each one is deliberate (a guard method under test) versus a real failure; does not conclude the build is simply broken, and does not propose rebuilding or redeploying anything.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I need RPC access to the dev build of branch X to look at a record. What do I do, step by step, without touching production?",
+      "expected_output": "Gives the ordered steps: find the build and open its Connect link, set a throwaway password via the documented JSON-RPC fetch call against /web/dataset/call_kw while the Connect session is active, then connect over XML-RPC (xmlrpc.client) using that build's own URL and database name read live from the dashboard; notes that setting the password invalidates the browser session; states clearly that every step targets only the dev build's own database, never a dataegret-odoo-prod-* database, and includes no write, deploy, or rebuild against production.",
+      "files": []
+    }
+  ]
+}

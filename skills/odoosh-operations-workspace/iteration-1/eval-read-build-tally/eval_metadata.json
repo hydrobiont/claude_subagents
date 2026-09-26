@@ -1,0 +1,25 @@
+{
+  "eval_id": 1,
+  "eval_name": "read-build-tally",
+  "prompt": "What is the real test result of the latest build on branch dev/datev-feed-receipts? Give me the tally line and any ERROR lines, and say which build id you read.",
+  "assertions": [
+    {
+      "text": "Names the build id of the latest build on the branch and confirms the branch from the page heading"
+    },
+    {
+      "text": "Quotes the odoo.tests.result tally line verbatim"
+    },
+    {
+      "text": "Quotes the de_fin_mail odoo.tests.stats line"
+    },
+    {
+      "text": "States whether ERROR-level lines exist after reading the whole install.log, not only the tail"
+    },
+    {
+      "text": "Reports the badge as a secondary signal and names the database the result was read on"
+    },
+    {
+      "text": "Performs no action beyond reading (no Rebuild, Connect, SSH or RPC)"
+    }
+  ]
+}

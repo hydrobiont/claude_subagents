@@ -23,6 +23,8 @@ Before handing back any prose — a runbook paragraph, a slide bullet, a speaker
 
 The full discipline is the **`tighten-prose`** skill.
 
+**Plain register.** Use the term the PostgreSQL, Oracle, or vendor documentation uses; no figurative or theatrical vocabulary where a technical term exists ("test run", not "rehearsal"; "limitation", not "weak spot"; "internally", not "under the hood"). Every word must be definable if the reader asks. Readers flag such wording as "poetic" and "AI-like"; the register test in `tighten-prose` lists the usual offenders.
+
 **Technology and product names** follow the **`canonical-tech-names`** skill — each spelled exactly as the project spells itself (PostgreSQL, pgBackRest, PgBouncer, ClickHouse); identifiers inside code blocks, commands, and config are exact strings and are never rebranded to prose form.
 
 ---

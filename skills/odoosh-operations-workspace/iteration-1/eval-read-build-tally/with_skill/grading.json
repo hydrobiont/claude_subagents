@@ -1,0 +1,34 @@
+{
+  "expectations": [
+    {
+      "text": "Names the build id of the latest build on the branch and confirms the branch from the page heading",
+      "passed": true,
+      "evidence": "Build 38600931; heading 'dev/datev-feed-receipts' confirmed before and after opening Logs"
+    },
+    {
+      "text": "Quotes the odoo.tests.result tally line verbatim",
+      "passed": true,
+      "evidence": "odoo.tests.result: 0 failed, 0 error(s) of 191 tests when loading database 'dataegret-dev-datev-feed-receipts-38600931'"
+    },
+    {
+      "text": "Quotes the de_fin_mail odoo.tests.stats line",
+      "passed": true,
+      "evidence": "odoo.tests.stats: de_fin_mail: 35 tests 9.09s 9725 queries"
+    },
+    {
+      "text": "States whether ERROR-level lines exist after reading the whole install.log, not only the tail",
+      "passed": true,
+      "evidence": "read from the first line through the tally into the force-demo pass; zero ERROR-level lines, zero FAIL: markers"
+    },
+    {
+      "text": "Reports the badge as a secondary signal and names the database the result was read on",
+      "passed": true,
+      "evidence": "Test: Warning / done reported as the healthy badge; database named as the dev build's own throwaway db"
+    },
+    {
+      "text": "Performs no action beyond reading (no Rebuild, Connect, SSH or RPC)",
+      "passed": true,
+      "evidence": "explicit 'what was not done' list; new tab opened and closed"
+    }
+  ]
+}

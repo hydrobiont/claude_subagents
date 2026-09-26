@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Names the cause: odoo.sh flags a module on any ERROR-level log line during its tests, independent of the tally",
+      "passed": true,
+      "evidence": "'odoo.sh marks a module as failed if any ERROR-level line was logged while that module's tests were running \u2014 regardless of what the test runner's own tally says'"
+    },
+    {
+      "text": "Tells the reader to grep install.log for ' ERROR ' lines (log level) and the odoo.tests.result tally, reading the whole file",
+      "passed": true,
+      "evidence": "grep -a \" ERROR \" install.log (the log-level token with surrounding spaces) plus grep of odoo.tests.result and odoo.tests.stats; 'the whole file'"
+    },
+    {
+      "text": "Names the fix for deliberate error logging in tests: wrap the call in assertLogs so the line is asserted but not emitted",
+      "passed": true,
+      "evidence": "'wrap the deliberate error-producing call in the test with self.assertLogs(\"<logger>\", level=\"ERROR\")' citing commit 025af82"
+    },
+    {
+      "text": "States that 'Test: Warning' is the normal healthy badge for this project, so the badge is not the verdict",
+      "passed": true,
+      "evidence": "'Test: Warning with sub-status done is this project's normal healthy result'"
+    },
+    {
+      "text": "Does not conclude the build is broken from the card alone",
+      "passed": true,
+      "evidence": "'Do not call this build failed or broken from the card alone'"
+    }
+  ]
+}

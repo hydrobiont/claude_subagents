@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "Names the cause: odoo.sh flags a module on any ERROR-level log line during its tests, independent of the tally",
+      "passed": false,
+      "evidence": "Attributes the mismatch to load-time exceptions, stale dashboard state or multiple tally lines; the rule that any ERROR-level line during a module's tests fails it is not stated"
+    },
+    {
+      "text": "Tells the reader to grep install.log for ' ERROR ' lines (log level) and the odoo.tests.result tally, reading the whole file",
+      "passed": true,
+      "evidence": "'grep the entire file for FAIL, ERROR, CRITICAL, and Traceback' and 'enumerate tally lines'"
+    },
+    {
+      "text": "Names the fix for deliberate error logging in tests: wrap the call in assertLogs so the line is asserted but not emitted",
+      "passed": false,
+      "evidence": "No fix offered; assertLogs is not mentioned"
+    },
+    {
+      "text": "States that 'Test: Warning' is the normal healthy badge for this project, so the badge is not the verdict",
+      "passed": false,
+      "evidence": "Describes warning as 'modules installed but at least one test failed' \u2014 the opposite of this project's healthy badge"
+    },
+    {
+      "text": "Does not conclude the build is broken from the card alone",
+      "passed": true,
+      "evidence": "'Do not resolve this by trusting either side in isolation'"
+    }
+  ]
+}

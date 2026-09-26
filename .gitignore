@@ -1,0 +1,3 @@
+# Claude Code's cache of first-party (synced) skill bundles. It lands here only
+# because ~/.claude/skills is a symlink into this repo. Not source; 12 MB.
+skills/synced/

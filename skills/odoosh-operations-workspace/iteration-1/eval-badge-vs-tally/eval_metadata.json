@@ -1,0 +1,22 @@
+{
+  "eval_id": 2,
+  "eval_name": "badge-vs-tally",
+  "prompt": "A build card on odoo.sh says 'At least one test failed when loading the modules (de_fin_mail)' but the log says 0 failed, 0 errors. Explain what is going on and what to check.",
+  "assertions": [
+    {
+      "text": "Names the cause: odoo.sh flags a module on any ERROR-level log line during its tests, independent of the tally"
+    },
+    {
+      "text": "Tells the reader to grep install.log for ' ERROR ' lines (log level) and the odoo.tests.result tally, reading the whole file"
+    },
+    {
+      "text": "Names the fix for deliberate error logging in tests: wrap the call in assertLogs so the line is asserted but not emitted"
+    },
+    {
+      "text": "States that 'Test: Warning' is the normal healthy badge for this project, so the badge is not the verdict"
+    },
+    {
+      "text": "Does not conclude the build is broken from the card alone"
+    }
+  ]
+}

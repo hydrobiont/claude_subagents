@@ -21,7 +21,8 @@ everything it doesn't. This skill is the second part: re-read the text and cut
 every word that fails to earn its place.
 
 The rule, in one line: **read it back, weigh each word, and delete any word whose
-removal costs no meaning, no precision, and no truth.**
+removal costs no meaning, no precision, and no truth** — and replace any word
+that is figurative where a plain technical term exists (see the register test).
 
 This is a *self-edit pass on already-written prose* — run it last, on your own
 draft or on text the user hands you. It does not restructure arguments or change
@@ -96,6 +97,39 @@ don't know the concrete mechanism or number, that is a `TODO:` flag for the
 author, not licence to guess. A vague-but-honest sentence beats a
 concrete-but-fabricated one.
 
+## The register test — plain technical words only
+
+A word can pass the deletion test and the precision test and still be wrong
+for technical prose because it is **figurative, theatrical, or evaluative**
+where a standard technical term exists. Readers experience this as "poetic"
+or "AI-written". The rule: **use the term the PostgreSQL, Oracle, or vendor
+documentation itself uses; if none exists, use the literal noun or verb.**
+Every word and every synonym must survive the question *"define it"* — if the
+author would need a metaphor to explain the word, replace the word.
+
+| Figurative / theatrical (seen in real drafts) | Write instead |
+|---|---|
+| "rehearsal", "dress rehearsal" | "test run", "dry run", "trial load" |
+| "head to head" | "in the same test", "under identical conditions" |
+| "the winner", "X wins" | "the tool with the better measured result", "X is faster" |
+| "weak spot", "Achilles heel" | "limitation" |
+| "this buys you X" | "this gives X", "this allows X" |
+| "settles the question" | "decides", "answers", "determines" |
+| "recipe" | "procedure", "technique", "setting" |
+| "story", "journey", "landscape" | "sequence of events", "migration", "set of tools" |
+| "cliff", "wall" | "threshold", "limit" |
+| "under the hood" | "internally", or name the mechanism |
+| "fails loudly / silently" | "returns error X" / "returns success and logs nothing" |
+| "in one stroke", "at a stroke" | "at once", "with one change" |
+| "the picture", "in hand" | "the result", "available" |
+| "sits in", "lives in" | "is in", "is stored in" |
+| "boring technology", "battle-tested" | "widely deployed since <year>", or the concrete evidence |
+
+The table is a seed, not a list to memorise: anything a reader could not look
+up in a technical glossary is a candidate. This is not the same as the
+deliberate-voice exception below — a wry aside the author chose stays; a
+metaphor that stands in for a technical term goes.
+
 ## What to NEVER cut (load-bearing words)
 
 Concision is in service of clarity and truth. The moment a cut costs either, it
@@ -140,7 +174,7 @@ carried over); dropping "optimizer" loses the precision. **Leave it whole.**
 ## Output
 
 - **Invoked on the user's text:** return the tightened version, then a short
-  bulleted list of the notable cuts (and any word you kept-and-flagged because
+  bulleted list of the notable cuts and register replacements (and any word you kept-and-flagged because
   cutting it would have changed meaning). Don't narrate every deleted "very".
 - **Applied to your own draft (the writing agents):** just return the tightened
   draft. The pass is invisible plumbing — the user sees a tighter result, not a
