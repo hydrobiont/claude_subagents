@@ -1,0 +1,350 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Agent roster: coverage, overlaps, gaps",
+    "output": "agent-roster-map.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1124,
+      520
+    ],
+    "views": [
+      {
+        "id": "entry",
+        "label": "Entry points",
+        "focus": [
+          "training",
+          "client",
+          "meta",
+          "website",
+          "odoo"
+        ],
+        "note": "Five domains the session dispatches to; their orchestrators run on inherit and hand execution down."
+      },
+      {
+        "id": "overlaps",
+        "label": "Overlaps",
+        "focus": [
+          "training",
+          "client",
+          "postgres",
+          "skills",
+          "browser"
+        ],
+        "note": "Two verifiers for the same PostgreSQL facts, three arc42-flavoured writers, one browser hub with two callers."
+      },
+      {
+        "id": "gaps",
+        "label": "Not covered",
+        "focus": [
+          "odoo",
+          "gaps",
+          "cloud",
+          "webapp"
+        ],
+        "note": "odoo-module-developer is referenced but has no file; Workspace admin, DATEV and Slack-bot operations have no owner."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "training",
+      "type": "backend",
+      "label": "Training content",
+      "sublabel": "7 agents · 2 orchestrators",
+      "tag": "3 verifiers · 2 opus authors",
+      "pos": [
+        40,
+        70
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "client",
+      "type": "backend",
+      "label": "Client writing & reports",
+      "sublabel": "2 agents · 1 orchestrator",
+      "tag": "borrows training-fact-checker",
+      "pos": [
+        256,
+        70
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "meta",
+      "type": "backend",
+      "label": "Architecture & tooling",
+      "sublabel": "4 agents · 3 opus",
+      "tag": "arc42 · advisor · CLI lead",
+      "pos": [
+        472,
+        70
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "website",
+      "type": "backend",
+      "label": "Website & marketing",
+      "sublabel": "1 orchestrator",
+      "tag": "de-website-manager",
+      "pos": [
+        688,
+        70
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "odoo",
+      "type": "backend",
+      "label": "Odoo & business systems",
+      "sublabel": "4 agents · 1 orchestrator",
+      "tag": "manager inherit · 3 sonnet",
+      "pos": [
+        904,
+        70
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "5 agents · 3 opus",
+      "tag": "KB · internals · perf · VM",
+      "pos": [
+        40,
+        230
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "skills",
+      "type": "messagebus",
+      "label": "Shared skills (12)",
+      "sublabel": "QA trio used by 17 agents",
+      "tag": "9 of 12 wired to no agent",
+      "pos": [
+        256,
+        230
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "godev",
+      "type": "backend",
+      "label": "Go development",
+      "sublabel": "3 agents · sonnet",
+      "tag": "writer · tests · Calendar API",
+      "pos": [
+        472,
+        230
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "browser",
+      "type": "backend",
+      "label": "browser-operator",
+      "sublabel": "shared executor · sonnet",
+      "tag": "two orchestrators call it",
+      "pos": [
+        688,
+        230
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "gaps",
+      "type": "external",
+      "label": "Not covered",
+      "sublabel": "odoo-module-developer missing",
+      "tag": "odoo.sh · Workspace · DATEV",
+      "pos": [
+        904,
+        230
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "cloud",
+      "type": "cloud",
+      "label": "Cloud infrastructure",
+      "sublabel": "AWS + GCP · 2 agents · sonnet",
+      "pos": [
+        40,
+        390
+      ],
+      "size": [
+        180,
+        68
+      ]
+    },
+    {
+      "id": "webapp",
+      "type": "backend",
+      "label": "Web-app dev",
+      "sublabel": "Django + Bootstrap · 2 agents",
+      "tag": "no dispatcher, no verifier",
+      "pos": [
+        256,
+        390
+      ],
+      "size": [
+        180,
+        68
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Entry points the session dispatches to · orchestrators run on inherit",
+      "wraps": [
+        "training",
+        "client",
+        "meta",
+        "website",
+        "odoo"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "Called directly by the session · no orchestrator, no verifier",
+      "wraps": [
+        "cloud",
+        "webapp"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "id": "training-postgres",
+      "from": "training",
+      "to": "postgres",
+      "label": "fact checks · PG VM",
+      "labelAt": [
+        130,
+        184
+      ]
+    },
+    {
+      "id": "training-skills",
+      "from": "training",
+      "to": "skills",
+      "label": "technical-writer ×5"
+    },
+    {
+      "id": "client-skills",
+      "from": "client",
+      "to": "skills",
+      "label": "arc42 QA loop",
+      "labelAt": [
+        346,
+        184
+      ]
+    },
+    {
+      "id": "meta-godev",
+      "from": "meta",
+      "to": "godev",
+      "label": "CLI lead → Go writers",
+      "labelAt": [
+        562,
+        184
+      ]
+    },
+    {
+      "id": "website-browser",
+      "from": "website",
+      "to": "browser",
+      "label": "WP admin · GA",
+      "variant": "emphasis",
+      "labelAt": [
+        778,
+        184
+      ]
+    },
+    {
+      "id": "odoo-browser",
+      "from": "odoo",
+      "to": "browser",
+      "label": "odoo.sh · DUO · Gmail",
+      "variant": "emphasis"
+    },
+    {
+      "id": "odoo-gaps",
+      "from": "odoo",
+      "to": "gaps",
+      "label": "names a missing agent",
+      "variant": "dashed",
+      "labelAt": [
+        994,
+        184
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Overlaps",
+      "items": [
+        "PostgreSQL facts are verified twice: training-fact-checker (opus) and pg-kb-answerer (sonnet).",
+        "Three arc42 writers: arc42-spec-writer, client-writeup-orchestrator, the arc42-findings-report skill.",
+        "Writing QA repeated in 17 prompts (tighten-prose) and 11 (technical-writer); three skills exist twice."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Gaps",
+      "items": [
+        "odoo-module-developer: named by two agents, no file — the Odoo dev loop ran in the session.",
+        "No owner for odoo.sh operations, Workspace/Gmail admin, the DATEV hand-off, Slack-bot ops, health checks.",
+        "9 of 12 skills are wired to no agent, among them archify, arc42-findings-report and db-dump-compare."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Suggested moves",
+      "items": [
+        "Create odoo-module-developer (sonnet) and an odoo.sh operations executor; schedule the health checks.",
+        "Let training-fact-checker consult pg-kb-answerer; bundle the three writing-QA skills into one pass.",
+        "Give the unused skills owners and remove the duplicated skill copies."
+      ]
+    }
+  ]
+}
