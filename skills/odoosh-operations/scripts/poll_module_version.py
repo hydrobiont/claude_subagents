@@ -24,6 +24,7 @@ Exit status: 0 when the expected version is observed, 1 on timeout,
 2 on a usage/setup error (bad args, keychain read failure).
 """
 import argparse
+import os
 import socket
 import ssl
 import subprocess
@@ -63,6 +64,20 @@ def read_keychain_password(service: str, account: str) -> str:
     return completed.stdout.strip()
 
 
+def read_1password(reference: str, account: str = "") -> str:
+    """Read a credential with the 1Password CLI at call time. Never logs it."""
+    cmd = ["op", "read", reference] + (["--account", account] if account else [])
+    try:
+        completed = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise SystemExit("poll_module_version.py: the 'op' (1Password CLI) command is not available.") from exc
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"poll_module_version.py: could not read 1Password reference {reference!r} "
+            f"(op exited {exc.returncode}); is the 1Password app unlocked?") from exc
+    return completed.stdout.strip()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -80,12 +95,20 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=int, default=480, help="give up after this many seconds (default: %(default)s)")
     parser.add_argument("--interval", type=int, default=30, help="seconds between polls (default: %(default)s)")
+    parser.add_argument("--op-ref", default=os.environ.get("ODOO_OP_REF", ""),
+                        help="1Password reference for the API key, e.g. op://vault/item/password; "
+                             "takes precedence over --keychain (default: $ODOO_OP_REF)")
+    parser.add_argument("--op-account", default=os.environ.get("OP_ACCOUNT", ""),
+                        help="1Password account for --op-ref (default: $OP_ACCOUNT)")
+    parser.add_argument("--keychain-account", default="",
+                        help="keychain account holding the key when it differs from --login")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    password = read_keychain_password(args.keychain, args.login)
+    password = (read_1password(args.op_ref, args.op_account) if args.op_ref
+                else read_keychain_password(args.keychain, args.keychain_account or args.login))
 
     common = xmlrpc.client.ServerProxy(f"{args.url}/xmlrpc/2/common")
     models = xmlrpc.client.ServerProxy(f"{args.url}/xmlrpc/2/object")

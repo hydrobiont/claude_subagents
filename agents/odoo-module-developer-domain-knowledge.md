@@ -12,6 +12,98 @@ Programme state lives in `~/work/de/odoo/migration/CLAUDE.md`, `PROGRESS-LOG.md`
 
 <!-- entries below; newest on top -->
 
+### 2026-09-29 — `IrModelData._process_end`, confirmed from source, deletes a record your own code created if you leave its xmlid `noupdate=False` and nothing else references it
+
+`odoo/addons/base/models/ir_model.py::_process_end(modules)` runs once, at the end of loading
+EVERY module being installed or updated in that run (after all of that module's own data files,
+including a `<function>` tag that runs your Python, have already loaded and committed their
+writes). Its query: `SELECT ... FROM ir_model_data WHERE module IN %s AND res_id IS NOT NULL AND
+COALESCE(noupdate, false) != true` — every external id of the processed module(s) that is NOT
+noupdate, in one pass. For each such row, if its xmlid string is not in `self.pool.loaded_xmlids`
+(populated by the declarative `<record>`/`<template>` XML loader — a raw `env["ir.model.data"]
+.create(...)` call from inside arbitrary Python, e.g. a get-or-create helper, never adds to it),
+the record is either (a) reduced to "just remove this one xmlid row" if the SAME (model, res_id)
+carries ANOTHER external id, or (b) `record.unlink()`'d outright if this was its ONLY external id
+— and Odoo's many2many relation tables use `ON DELETE CASCADE`, so deleting the record silently
+empties every m2m field that pointed at it, on every model, with no error anywhere. A get-or-
+create helper that registers its own xmlid with the default `noupdate=False` is therefore SAFE
+only for a row that will always have another, protected external id (e.g. one also carried by a
+migration/demo data file) — a genuinely NEW record (nothing else names it) is deleted the very
+first time the module updates, taking every relationship into it down at the same time. Fix:
+register such an xmlid with `noupdate: True` on create, AND upgrade an existing unprotected row
+found already that way (`if not xmlid.noupdate: xmlid.write({"noupdate": True})`) — a database
+that updated through an unprotected version needs the repair applied to it, not just to future
+installs. A CI database can mask this completely: on a fresh install with no other xmlids ever
+competing for the same records, `_process_end` deletes ALL such rows uniformly and a test that
+calls the same get-or-create helper at the top of its own body just silently re-creates them
+under new ids, so the tally stays green while a real database (carrying other, protected xmlids
+for only SOME of the same records — e.g. three of four reused tags with a migration-era xmlid,
+one brand-new tag with only this module's) breaks asymmetrically. Root-caused in `de_sla`
+(`HelpdeskTicket._de_sla_class_tags`, `de_sla/models/helpdesk_ticket.py`) after the 2026-09-29
+staging install (build 37822891) left four generated SLA policies with empty `tag_ids` and their
+tickets with no class tag; precedent for the fix: `dataegret_slackbot` 19.0.3.2.1 (commit
+`2ae1b5f`, "protect runtime ticket XMLIDs") already did the create-time half (`"noupdate": True`
+on its own `ir.model.data.create()` call) for a different, runtime-created xmlid.
+
+### 2026-09-29 — `BaseModel.unlink()` is a faithful stand-in for `_process_end`'s own record deletion, and a generator's exact-key adoption self-heals a tag-less managed record for free
+
+Confirmed from `odoo/orm/models.py::unlink()`: deleting a record explicitly (`record.unlink()`)
+issues a raw SQL `DELETE` (which is what triggers PostgreSQL's `ON DELETE CASCADE` on any
+many2many junction table pointing at it) and then explicitly searches and unlinks any
+`ir.model.data` row with that `(model, res_id)` — the exact same two effects `_process_end`
+produces on a record it decides to delete. A test that wants to reproduce "this module's own
+earlier update let `_process_end` delete one of our records" therefore does not need to simulate
+`loaded_xmlids`/`_process_end` at all: create the fixtures, then call `.unlink()` directly on the
+target record, and the many2many/xmlid damage is identical. Separately, in a generator that
+adopts an existing target record by an exact marker-field match before falling back to a fuzzy
+match (this codebase's `de.sla.generator._de_find_for_adoption`: exact `de_profile_key` first,
+then a fuzzy equal-tag-set/overlapping-partners search that is active-only and cannot match an
+emptied tag set), a record whose relationship was wiped this way is adopted straight back onto a
+freshly re-resolved related record — with a corrective diff-write, same id, no duplicate — PURELY
+because the marker field survived the wipe and the next full regeneration run recomputes the same
+key for the same input. This means the generator's own periodic re-run is already most of the
+self-repair; the only genuinely new work needed for a `de_sla`-shaped incident was relinking the
+now-orphaned side (the ticket's `tag_ids`, which the tag deletion also cascaded off of and which
+no generator pass ever revisits on its own — the generator only walks `helpdesk.sla`, never
+`helpdesk.ticket`), done under `_backfill()`'s own trusted, `_sla_reset_trigger`-bypassing context
+so relinking a class tag does not reset or recompute the ticket's SLA status history.
+
+### 2026-09-28 — In the `de_course_booking` repo, `staging_migration` is kept in sync with `dev/booking-intake` by repeated MERGE commits, not fast-forward — check `git merge-base --is-ancestor` before assuming a plain push will work
+
+`git log origin/staging_migration` shows three "Merge dev/booking-intake into staging_migration" commits (`48fc6a4`, `64afd7f`, `97de7b0`), and `git merge-base 50f3763 origin/staging_migration` resolves to `bb42908`, an EARLIER commit than `50f3763` (`dev/booking-intake`'s own base, which is also `prod`'s current tip) — meaning `staging_migration`'s history has genuinely diverged from both `dev/booking-intake` and `prod`, not merely fallen behind on a shared line. A `git push origin <dev-tip>:staging_migration` against this state is refused outright (non-fast-forward); the working recipe here is `git merge` `dev/booking-intake` into a `staging_migration` checkout (creating a new merge commit on `staging_migration`, matching its own history) and pushing that. Always run `git merge-base --is-ancestor origin/staging_migration <dev-tip>` first — a `NO` means merge, not push; a plain `git push ...:staging_migration` is only safe once that check says `YES`.
+
+### 2026-09-28 — A task that says "no browser use" cannot complete the CI-tally-reading step on this project, full stop
+
+odoo.sh's build id (the SSH username, and the only way to construct that build's `.dev.odoo.com` hostname) is discoverable **only** from the odoo.sh dashboard — confirmed again this session: a freshly pushed commit to `dev/booking-intake` produced `total_count: 0` on both `gh api repos/dataegret/odoo/commits/<sha>/status` and `.../check-runs` (odoo.sh posts no GitHub signal at all, matching the 2026-09-21 finding below), and dev-build hostnames are confirmed (from `scripts/rearm_dev_build.py`'s own `branch_family()` parser, which strips a trailing `-<id>` segment) to always carry a numeric build id with no id-less fallback form for a `dev/*` branch. A stale `target.env`-style file from a previous session is not a substitute — its URL had already rotated. Consequence: an instruction to implement-and-ship a change while forbidding browser use can complete the code, the tests, the static checks, the commits and the `dev/*` push, but **cannot** complete the "read the real `install.log` tally" step of the house loop, and per the dev→CI→staging→prod no-shortcuts rail that also blocks every step after it (staging re-arm, sandbox rehearsal, prod fast-forward) — this is a hard stop to report, not a gap to route around with a guessed hostname or a dispatched browser-capable subagent.
+
+### 2026-09-28 — `ir.ui.menu.groups_id` is `group_ids` in Odoo 19; `crm.lead.description` is `fields.Html`; an `ir.actions.act_window` Char field's `eval="…ref(...)…"` is a safe, confirmed pattern
+
+Three source-verified facts from building the `de_course_booking` Course-pipeline menu. (1) `odoo/addons/base/models/ir_ui_menu.py` on the `19.0` branch: the menu-visibility field is `group_ids = fields.Many2many('res.groups', 'ir_ui_menu_group_rel', 'menu_id', 'gid', ...)` — the historic `groups_id` name (still what the `groups="..."` XML attribute on `<menuitem>` writes to) is gone, same rename pattern as `res.users.groups_id`→`group_ids` and `crm.stage.team_id`→`team_ids` already on file below (2026-08-17). (2) `odoo/addons/crm/models/crm_lead.py`: `description = fields.Html('Notes')` — an HTML field, not Text; any payload-derived string placed into it must be escaped by hand (stdlib `html.escape` is sufficient) before building the markup, since a raw `<`/`&` from user input would otherwise be parsed as markup by Odoo's `html_sanitize` rather than displayed as text. (3) `odoo/orm/fields_textual.py`: `Char`/`BaseString.convert_to_cache` does `s = str(value)` for anything that isn't already `bytes`/`str` — so `<field name="domain" eval="[('team_id', '=', ref('xmlid'))]"/>` on an `ir.actions.act_window` (a plain `Char` field) is a fully safe, ORM-confirmed pattern: the XML loader's `eval` evaluates the Python list with `ref()` resolved to a real id, and the Char field's own conversion stringifies it into exactly the domain-string form `safe_eval` expects later. This is the same mechanism already relied on for `context` fields (`action_booking_mail_templates` in this module) — now confirmed by source rather than by analogy alone.
+
+### 2026-09-28 — `request.update_env` fixes two distinct identity leaks with the same one call, not just the ORM's own default_env check
+
+Confirmed from `odoo/http.py` on the 19.0 branch: `update_env(self, user=None, context=None, su=None)` rebinds `self.env` **and** `self.env.transaction.default_env`, and accepts `user` as either an int or a `res.users` recordset. The 2026-08-17 entry below documents one failure mode this fixes — the ORM's own relational-field access checks, which run against `transaction.default_env.uid` rather than whatever env a controller derives later. A second, distinct failure mode is application code that reads `request.env.uid` directly as "who is making this request" (for example `de_portal`'s `_de_portal_acting_user()`, gating a `helpdesk.ticket.create` on the acting user's `.share`) — a route that only ever does `env = request.env(user=SUPERUSER_ID, su=True)` for its own work never touches `request.env` itself, so `request.env.uid` stays whatever the public route was authenticated as, and any guard reading it sees the wrong principal even though every write in the request runs correctly as the intended user. `request.update_env(user=...)`, called once (for instance right after a signed request's HMAC check passes, as `dataegret_slackbot` 19.0.3.2.3 now does in `_verify_signature()`), fixes both at once because it is `request.env` itself that changes, not a value derived from it.
+
+### 2026-09-28 — Odoo 19's ORM package split moved field-type internals: `Selection._description_selection` now lives in `odoo/orm/fields_selection.py`
+
+Confirmed by listing `odoo/orm/` on the 19.0 branch (github.com/odoo/odoo): the old monolithic `odoo/fields.py` no longer holds every field type — it now covers only the base `Field` class, with each type split into its own module (`fields_binary.py`, `fields_misc.py`, `fields_numeric.py`, `fields_properties.py`, `fields_reference.py`, `fields_relational.py`, `fields_selection.py`, `fields_temporal.py`, `fields_textual.py`), and the flat `odoo/fields.py` path from pre-19 Odoo 404s directly on the 19.0 branch. `Selection._description_selection(self, env)` (in `fields_selection.py`) is unchanged in shape from pre-19 Odoo: it returns a list of `(value, label)` pairs, translating labels via `ir.model.fields.get_field_selection` for a static selection, or resolving through `determine(selection, env[model_name])` for a callable/string selection — the API a helper can use to read a Selection field's live allowed values (`{value for value, _label in field._description_selection(env)}`) without hardcoding the vocabulary. Read this file, not the old top-level path, whenever a Selection field's own description/values/export behaviour needs confirming from source on Odoo 19.
+
+### 2026-09-28 — Stripe Checkout's billing/name/email/card prefill comes only from a saved card, never from bare `Customer.address`/`.name`
+
+Read from Stripe's own docs (docs.stripe.com/payments/existing-customers, "Prefill fields on the payment page") and confirmed live against `de_course_booking` on production: Checkout prefills Email, Name, Card and Billing address on the payment page only when the passed `customer` has a **saved card** (a previously-used, `allow_redisplay: always`-eligible payment method) whose stored `billing_details` satisfy the session's `billing_address_collection` — `required` demands email + name + every address field on that saved card. Creating a `Customer` with `name`/`address[...]` and passing `customer=cus_...` to a fresh Checkout Session does **not** by itself prefill anything beyond what a saved card would carry — a brand-new customer (first-ever payment) has no saved card, so the billing form renders empty regardless of how complete the Customer object is, and `customer_update[address]=auto`/`[name]=auto` only controls whether Checkout *writes* what the buyer types back onto the Customer afterward, not whether it reads from it beforehand. A module that wants repeat-customer prefill on a later booking additionally needs the first successful payment's PaymentIntent to actually save a reusable card (e.g. `payment_intent_data[setup_future_usage]`) — without that, even a returning customer's Checkout stays unprefilled forever. Do not treat "the module creates/reuses a Stripe Customer carrying the address" as sufficient for prefill; it is necessary only for Stripe Tax and for the eventual invoice, not for the payment page.
+
+### 2026-09-28 — Odoo 19's `ir.cron` no longer exposes `numbercall`/`doall` over the ORM
+
+A `search_read`/`read` on `ir.cron` naming `numbercall` or `doall` raises `ValueError: Invalid field 'numbercall' on 'ir.cron'` (odoo/orm/models.py `_determine_fields_to_fetch`) on a live Odoo 19+e database — both fields are gone from the model. Read only `id,name,active,nextcall,interval_number,interval_type` (plus `code`/`model_id` if needed) when introspecting a cron over XML-RPC.
+
+### 2026-09-28 — A custom `crm.lead.create()` that names only a few fields leaves the lead's own rich fields blank, even though CRM ships them
+
+`crm.lead` carries its own `partner_name`, `street`, `street2`, `zip`, `city`, `country_id`, `phone`, `function`, `email_from` and `description` (HTML "Notes") fields — confirmed present via `fields_get` on Odoo 19 production — independent of whatever `partner_id` points at. A creation path that supplies only `name`/`type`/`partner_id`/`team_id`/`stage_id`/`tag_ids`/`expected_revenue` leaves every one of those fields `False` on the record; nothing propagates them from the linked partner, from a sibling `sale.order`, or from any other record touched in the same transaction. If an opportunity is meant to show billing/company identity, the creating code must write those fields (or `description`) explicitly at create time — verified on `de_course_booking`'s booking-intake lead (billing company, address and VAT id live only on the order's invoice partner and on `sale.order.x_billing_vat_id`; the linked `crm.lead` shows none of it).
+
+### 2026-09-28 — Stock CRM's default "Pipeline" window action carries no `team_id` domain; multiple teams' opportunities show together unless a team-scoped action or explicit domain is used
+
+Read live from `ir.actions.act_window` on Odoo 19 production: the generic Pipeline/My-Pipeline action for `crm.lead` has domain `[('type','=','opportunity')]` (no team filter at all) and context `{'default_type': 'opportunity', 'search_default_assigned_to_me': 1, 'show_user_team_stages': 1}` — `search_default_assigned_to_me` is a removable search-bar facet, not a hard filter, and `show_user_team_stages` only limits which teams' *stage columns* render for the current user in kanban, not which records are included. A user who is a member of more than one `crm.team` (for example the sales lead plus a dedicated bookings team) sees every team's opportunities mixed in this view by default; per-team separation (Pipedrive-style) needs either opening a team's own scoped action from Sales Teams (its context sets `search_default_team_id`/`default_team_id` from `active_id`), or a new `ir.actions.act_window` + menu entry with an explicit `[('team_id','=', <team>)]` domain shipped by the module that owns that team.
+
 ### 2026-09-26 — A wizard button that returns `True` or `None` closes its dialog; only a browser click reveals it
 
 `de_sla`'s change wizard passed its whole unit suite on dev build 38671012 while its **Preview impact** button was unusable: `action_preview` ended with `return True`, and the web client closes a `target="new"` dialog whenever a button method returns no action. `call_button` reports that non-action return as `{"result": false}`; nothing is logged, no toast or console error appears on either side, and the previewed transient record is simply abandoned, so **Apply** could never be reached. `Form` tests and direct `wizard.action_x()` calls never model the dialog, so CI and the badge stay green. The fix is the standard idiom: return an `ir.actions.act_window` that reopens the same record (`res_model`, `res_id`, `view_mode: form`, `target: new`) and passes `dict(self.env.context)` through, so a view rule keyed on a `default_*` context key (here the pinned classification) still holds after the reopen; a button that is meant to finish the wizard returns `ir.actions.act_window_close`. Rule: every wizard button method returns an action, and browser QA of a wizard clicks every button and checks the dialog is still open in the expected state, reading the raw `call_button` response when it is not.

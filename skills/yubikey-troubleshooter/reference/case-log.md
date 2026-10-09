@@ -28,6 +28,14 @@ future runs benefit. Keep entries short and evidence-led.
 
 ## Cases
 
+### Unexpected OpenPGP PIN prompt at Claude Code startup — 2026-10-05
+- Applet/layer: OpenPGP (PW1 via OpenSC PKCS#11), client side. Not a card fault.
+- Symptom: launching Claude Code sometimes paints `Enter PIN for 'OpenPGP card (User PIN)'` over the TUI — only when the YubiKey is inserted. User asked whether the app logs in somewhere over SSH at startup.
+- Distinguishing signal: `ps -eo pid,ppid,tty,etime,command | grep '[s]sh '` showed `ssh -p <port> user@host … <remote-mcp-binary>` whose PPID was the `claude` process, started one second after it, on the same controlling TTY (foreground group, `S+`). `~/.claude.json` carried that command as a **user-scope** stdio MCP server, so it ran in every project folder. `~/.ssh/config` `Host *` → `PKCS11Provider opensc-pkcs11.so` + `IdentityAgent none` made that ssh sign with the card in-process; the PIN prompt goes through `/dev/tty`, which the child shares with Claude Code.
+- Root cause: an SSH-transported MCP server in user scope plus a `Host *` PKCS11Provider turns every app launch into an interactive card login. Without the card, OpenSC reports no slots and ssh silently falls back to file keys, so the prompt looks intermittent.
+- Fix (non-destructive, config only): (a) move the server out of user scope into the one project that needs it (`claude mcp remove <name> -s user`, re-add inside that project); (b) make automated ssh callers non-interactive: `ssh -S ~/.ssh/ctl-<name> -o ControlMaster=no -o BatchMode=yes …` against a ControlMaster socket the human opens once (`ssh -fNM -S ~/.ssh/ctl-<name> -o ServerAliveInterval=30 -p <port> user@host`; PIN + touch happen there). `BatchMode=yes` also disables the PKCS#11 PIN prompt (ssh calls `pkcs11_init(!batch_mode)`), so a missing master fails in a second instead of grabbing the terminal. If the host also accepts a file key, `-o PKCS11Provider=none` alone stops the prompt.
+- Notes: Claude Code 2.1.289 did not kill the ssh child after its 30 s MCP connection timeout; it was still alive 4 h later holding the TCP session. Answering the PIN prompt inside the TUI is unsafe: ssh and Claude read the same TTY, so digits can land in Claude's input box. Triage rule: "which app asks for the PIN at startup?" → grep `ssh` in MCP server definitions and SessionStart hooks before touching the card.
+
 ### SSH CA on YubiKey — architecture facts worth not re-deriving — 2026-08-10
 - Applet/layer: PIV + OpenPGP, CA/certificate design (not a fault — planning case).
 - **No private key export exists on either applet.** `ykman piv keys export` exports the *public* key only; OpenPGP has no export subcommand (its `import` is for the attestation key alone). No PIN/PUK/mgmt-key/possession changes this. So a YubiKey cannot be cloned from a card you hold — two cards share a key only if it was generated off-card and imported twice.

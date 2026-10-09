@@ -146,3 +146,34 @@ address yet.
    retrying a failed navigation in a loop — correctly refuse to kill a
    foreign process or silently fall back to an isolated profile; ask the
    user to release the session instead.
+
+## Reading a build's web shell as a browser-automation agent (verified 2026-09-25/26)
+
+When SSH to a dev container times out (three consecutive builds on
+`dev/ticket-classification-sla` did, port 22, `Operation timed out`), the
+build's web shell reads `install.log` just as well:
+
+1. Open it in the **current tab** with a plain navigation to
+   `https://<build-host>/odoo-sh/webshell/ws`; it goes through odoo.sh
+   single sign-on and comes back signed in. Do not open it as a new tab:
+   with the shared-context Playwright MCP server, `browser_tabs select`
+   fails for every tab created after the session's first two, while `list`
+   still shows them.
+2. The terminal is a canvas-rendered xterm with no DOM text mirror, so
+   `innerText` and snapshots return nothing useful. Read it from
+   screenshots: keep each command's output short (`| sed -n 'a,bp'`,
+   `cut -c1-200`), and never read a long hash or version off the image.
+   Have the shell compare it instead and print a short token, e.g.
+   `[ "$(git -C ~/src/user rev-parse HEAD)" = "<sha>" ] && echo HEAD_MATCH || echo HEAD_MISMATCH`.
+3. Manifests in this repository use double-quoted `"version"` strings; a
+   single-quote pattern silently matches nothing, so grep quote-agnostically.
+4. Screenshots must be saved with `filename` under the browser's allowed
+   roots (`~/work/de/odoo` or `~/work/de/odoo/.playwright-mcp` here); a temp
+   directory path is refused, and with `--image-responses omit` a
+   screenshot exists only on disk.
+5. Count test starts as well as reading the statistics line: the
+   `odoo.tests.stats: <module>: N tests` figure is not a method count (on
+   2026-09-26 `de_sla` printed 113 while the `Starting` lines numbered 89
+   and matched every `def test_` in the source, file by file). The tally,
+   the badge, the ERROR-line count and the `Starting` lines are the
+   evidence; the statistics line alone is not.

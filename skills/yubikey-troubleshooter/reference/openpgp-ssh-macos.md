@@ -110,3 +110,26 @@ preserving. Never guess PINs; note PW1 somewhere safe.
 macOS, verifies the installed OpenSSH (>= 8.9) and OpenSC versions and the
 module load, pins the Homebrew paths, and does a functional card check. It
 touches only client config — never the card or any PIN.
+
+## Side effect of `Host *`: every automated ssh becomes a card login
+
+With `PKCS11Provider` under `Host *`, any ssh spawned by a tool — an MCP server
+whose transport is ssh, an editor or agent hook, a cron job — loads the card
+and, if the server accepts the card key, prompts for the PIN on whatever
+controlling terminal it inherited (ssh opens `/dev/tty` directly; stdin being a
+pipe does not stop it). In Claude Code this shows up as a PIN prompt painted
+over the TUI at startup, only when the key is inserted. Without the card the
+same ssh silently falls back to file keys or a password prompt, so the symptom
+looks random. Seen 2026-10-05 (see case-log).
+
+For automated callers, use a human-opened ControlMaster socket plus BatchMode:
+
+    # once per session, by hand (PIN + touch happen here):
+    ssh -fNM -S ~/.ssh/ctl-<name> -o ServerAliveInterval=30 -p <port> user@host
+    # the tool's command:
+    ssh -S ~/.ssh/ctl-<name> -o ControlMaster=no -o BatchMode=yes -p <port> user@host <cmd>
+
+`BatchMode=yes` disables password *and* PKCS#11 PIN prompts (`pkcs11_init(!batch_mode)`),
+so a missing master fails within a second instead of blocking on the terminal.
+Keep such servers out of the user (global) scope so they start only in the
+project that needs them.
